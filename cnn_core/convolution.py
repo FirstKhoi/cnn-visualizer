@@ -37,7 +37,20 @@ def conv2d(input: np.ndarray, kernel: np.ndarray, stride: int = 1, padding: int 
         4. Không dùng np.convolve, scipy.signal.convolve/correlate,
            hay torch — mục tiêu Phase này là tự tay viết vòng lặp trượt.
     """
-    raise NotImplementedError("TODO Phase 2: implement conv2d trong cnn_core/convolution.py")
+    H, W = input.shape
+    K, K = kernel.shape
+    padded_input = pad_matrix(input, padding)
+    
+    H_out = (H + 2 * padding - K) // stride + 1
+    W_out = (W + 2 * padding - K) // stride + 1
+    
+    output = np.zeros((H_out, W_out), dtype=input.dtype)
+    
+    for i in range(H_out):
+        for j in range(W_out):
+            window = padded_input[i * stride : i * stride + K, j * stride : j * stride + K]
+            output[i, j] = np.sum(window * kernel)
+    return output
 
 
 def conv2d_multichannel(
@@ -73,4 +86,24 @@ def conv2d_multichannel(
           conv2d() là đủ và giúp thấy rõ cơ chế; có thể tối ưu sau ở mục
           "Ý mở rộng" trong TODO.md.
     """
-    raise NotImplementedError("TODO Phase 5: implement conv2d_multichannel trong cnn_core/convolution.py")
+    H, W, C_in = input.shape
+    K, _, _, C_out = kernels.shape
+    
+    H_out = (H + 2 * padding - K) // stride + 1
+    W_out = (W + 2 * padding - K) // stride + 1
+    
+    output = np.zeros((H_out, W_out, C_out), dtype=input.dtype)
+    
+    for c_out in range(C_out):
+        feature_map = np.zeros((H_out, W_out), dtype=input.dtype)
+        for c_in in range(C_in):
+            input_channel = input[:, :, c_in]
+            kernel_slice = kernels[:, :, c_in, c_out]
+            feature_map += conv2d(input_channel, kernel_slice, stride=stride, padding=padding)
+        
+        if bias is not None:
+            feature_map += bias[c_out]
+            
+        output[:, :, c_out] = feature_map
+        
+    return output

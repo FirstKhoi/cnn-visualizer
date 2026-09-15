@@ -1,4 +1,4 @@
-"""Trang chủ — tổng quan project + checklist trạng thái implement cnn_core/.
+"""Trang chủ — landing page + checklist trạng thái implement cnn_core/.
 
 Chạy: streamlit run app.py
 Các trang trong pages/ tự động xuất hiện ở sidebar (quy ước Streamlit).
@@ -7,88 +7,74 @@ Các trang trong pages/ tự động xuất hiện ở sidebar (quy ước Strea
 import numpy as np
 import streamlit as st
 
+from viz.theme import BORDER, CARD_BG, MUTED, PAGE_COLORS, PRIMARY, TEXT, hero, inject_base_css, phase_pill
+
 st.set_page_config(page_title="CNN Visualizer", layout="wide")
+inject_base_css()
 
-st.title("CNN Visualizer")
-st.markdown(
-    """
-App trực quan hoá CNN — bạn tự viết phần toán trong `cnn_core/`, app chỉ vẽ
-lại kết quả. Xem lộ trình chi tiết từng phase trong `TODO.md`.
-
-Mỗi trang bên sidebar tương ứng 1 khái niệm, đi theo đúng thứ tự nên học:
-kernel/convolution → padding → stride → công thức shape → pooling →
-activation → ghép thành block → full pipeline trên ảnh thật.
-"""
+hero(
+    title="CNN Visualizer",
+    subtitle="Tự tay viết từng phép toán của CNN — kernel, padding, stride, pooling — rồi xem nó chạy thật, từng bước một.",
+    badge="Học CNN bằng cách tự xây",
 )
 
-st.divider()
-st.subheader("Trạng thái implement")
-st.caption("Tự động thử gọi từng hàm trong cnn_core/ — bảng này là cách nhanh nhất để biết đang ở phase nào.")
+st.markdown(
+    f"""
+    <div style="color:{MUTED}; font-size:1.0rem; margin-bottom:1.4rem;">
+    Phần toán (<code>cnn_core/</code>) do <b>bạn</b> viết — app chỉ vẽ lại kết quả.
+    Đi đúng thứ tự 8 bước bên dưới, mỗi bước implement xong 1-2 hàm là mở khoá
+    ngay 1 trang trực quan. Chi tiết từng phase ở <code>TODO.md</code>.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
-def _check(fn, *args, **kwargs) -> tuple[bool, str | None]:
+def _check(fn, *args, **kwargs) -> bool:
     try:
         fn(*args, **kwargs)
-        return True, None
-    except NotImplementedError:
-        return False, None
-    except Exception as exc:  # implemented nhưng có bug -> vẫn tính là "đã đụng vào"
-        return False, f"Lỗi khi test: {exc}"
+        return True
+    except Exception:
+        return False
 
 
-rows = []
+ready: dict[int, bool] = {}
+
+try:
+    from cnn_core.convolution import conv2d
+
+    ready[1] = _check(conv2d, np.ones((3, 3)), np.ones((2, 2)))
+except ImportError:
+    ready[1] = False
+ready[3] = ready[1]  # Stride dùng chung conv2d với trang 1
 
 try:
     from cnn_core.padding import pad_matrix
 
-    ok, err = _check(pad_matrix, np.array([[1]]), 1)
-    rows.append(("Phase 1", "cnn_core/padding.py", "pad_matrix", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 1", "cnn_core/padding.py", "pad_matrix", False, str(exc)))
-
-try:
-    from cnn_core.convolution import conv2d, conv2d_multichannel
-
-    ok, err = _check(conv2d, np.ones((3, 3)), np.ones((2, 2)))
-    rows.append(("Phase 2", "cnn_core/convolution.py", "conv2d", ok, err))
-
-    ok, err = _check(conv2d_multichannel, np.ones((4, 4, 1)), np.ones((2, 2, 1, 1)))
-    rows.append(("Phase 5", "cnn_core/convolution.py", "conv2d_multichannel", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 2", "cnn_core/convolution.py", "conv2d", False, str(exc)))
-    rows.append(("Phase 5", "cnn_core/convolution.py", "conv2d_multichannel", False, str(exc)))
+    ready[2] = _check(pad_matrix, np.array([[1]]), 1)
+except ImportError:
+    ready[2] = False
 
 try:
     from cnn_core.shapes import conv_output_shape
 
-    ok, err = _check(conv_output_shape, 5, 3, 1, 0)
-    rows.append(("Phase 3", "cnn_core/shapes.py", "conv_output_shape", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 3", "cnn_core/shapes.py", "conv_output_shape", False, str(exc)))
+    ready[4] = _check(conv_output_shape, 5, 3, 1, 0)
+except ImportError:
+    ready[4] = False
 
 try:
-    from cnn_core.pooling import avg_pool2d, max_pool2d
+    from cnn_core.pooling import max_pool2d
 
-    ok, err = _check(max_pool2d, np.ones((4, 4)), 2, 2)
-    rows.append(("Phase 4", "cnn_core/pooling.py", "max_pool2d", ok, err))
-
-    ok, err = _check(avg_pool2d, np.ones((4, 4)), 2, 2)
-    rows.append(("Phase 4", "cnn_core/pooling.py", "avg_pool2d", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 4", "cnn_core/pooling.py", "max_pool2d", False, str(exc)))
-    rows.append(("Phase 4", "cnn_core/pooling.py", "avg_pool2d", False, str(exc)))
+    ready[5] = _check(max_pool2d, np.ones((4, 4)), 2, 2)
+except ImportError:
+    ready[5] = False
 
 try:
-    from cnn_core.activation import relu, sigmoid
+    from cnn_core.activation import relu
 
-    ok, err = _check(relu, np.array([1.0]))
-    rows.append(("Phase 4", "cnn_core/activation.py", "relu", ok, err))
-
-    ok, err = _check(sigmoid, np.array([1.0]))
-    rows.append(("Phase 4", "cnn_core/activation.py", "sigmoid", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 4", "cnn_core/activation.py", "relu", False, str(exc)))
-    rows.append(("Phase 4", "cnn_core/activation.py", "sigmoid", False, str(exc)))
+    ready[6] = _check(relu, np.array([1.0]))
+except ImportError:
+    ready[6] = False
 
 try:
     from cnn_core.block import ConvBlock
@@ -97,18 +83,57 @@ try:
         block = ConvBlock(kernels=np.ones((2, 2, 1, 1)))
         block.forward(np.ones((4, 4, 1)))
 
-    ok, err = _check(_try_block)
-    rows.append(("Phase 5", "cnn_core/block.py", "ConvBlock", ok, err))
-except ImportError as exc:
-    rows.append(("Phase 5", "cnn_core/block.py", "ConvBlock", False, str(exc)))
+    ready[7] = _check(_try_block)
+except ImportError:
+    ready[7] = False
+ready[8] = ready[7]  # Full pipeline dùng chung ConvBlock với trang 7
 
-for phase, file, name, ok, err in rows:
-    status = "[DONE]" if ok else "[TODO]"
-    col1, col2, col3 = st.columns([1, 3, 2])
-    col1.markdown(f"`{status}` **{phase}**")
-    col2.code(f"{file} :: {name}", language=None)
-    col3.caption(err or ("Xong" if ok else "Chưa implement"))
+PAGES = [
+    (1, "pages/1_Kernel_va_Convolution.py", "Kernel & Convolution", "Trượt kernel qua input, nhân-cộng từng vị trí."),
+    (2, "pages/2_Padding.py", "Padding", "Thêm viền quanh input trước khi convolve."),
+    (3, "pages/3_Stride.py", "Stride", "Bước nhảy của kernel — trượt từng bước hay nhảy cóc."),
+    (4, "pages/4_Cong_thuc_Output_Shape.py", "Output Shape", "Ráp kernel + padding + stride thành 1 công thức."),
+    (5, "pages/5_Pooling.py", "Pooling", "Thu nhỏ feature map: giữ giá trị lớn nhất hay lấy trung bình."),
+    (6, "pages/6_Activation.py", "Activation", "ReLU cắt số âm — lý do CNN học được pattern phi tuyến."),
+    (7, "pages/7_Conv_Block.py", "Conv Block", "Ghép Conv → ReLU → Pool thành 1 khối, chạy trên ảnh nhiều kênh."),
+    (8, "pages/8_Full_Pipeline.py", "Full Pipeline", "Xếp nhiều block, forward 1 ảnh thật qua toàn bộ chuỗi."),
+]
 
-done = sum(1 for row in rows if row[3])
-st.progress(done / len(rows) if rows else 0)
-st.caption(f"{done}/{len(rows)} hàm đã implement — chạy `pytest -v` để kiểm tra chi tiết đúng/sai.")
+st.markdown("### Hành trình 8 bước")
+
+cols = st.columns(4)
+for idx, (num, path, title, desc) in enumerate(PAGES):
+    color = PAGE_COLORS[num]
+    done = ready.get(num, False)
+    status_html = phase_pill("Xong" if done else "Chưa làm", color if done else MUTED)
+    with cols[idx % 4]:
+        st.markdown(
+            f"""
+            <div style="
+                background:{CARD_BG};
+                border:1.5px solid {color if done else BORDER};
+                border-radius:14px;
+                padding:1rem 1.1rem;
+                margin-bottom:1rem;
+                min-height:148px;
+                box-shadow: 0 4px 14px -8px {color}55;
+            ">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:{color}; font-weight:800; font-size:1.4rem;">{num}</span>
+                    {status_html}
+                </div>
+                <div style="font-weight:700; color:{TEXT}; margin-top:0.3rem;">{title}</div>
+                <div style="color:{MUTED}; font-size:0.85rem; margin-top:0.2rem;">{desc}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.page_link(path, label="Mở trang", icon=":material/arrow_forward:")
+
+st.divider()
+
+done_count = sum(1 for v in ready.values() if v)
+total = len(ready)
+st.markdown(f"**Tiến độ tổng: {done_count}/{total} nhóm hàm đã implement**")
+st.progress(done_count / total if total else 0)
+st.caption("Chạy `pytest -v` để xem chi tiết test nào pass/fail trong từng file.")

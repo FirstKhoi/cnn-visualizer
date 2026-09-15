@@ -32,4 +32,28 @@ def pad_matrix(matrix: np.ndarray, pad: int, mode: str = "zero") -> np.ndarray:
                               [0, 3, 4, 0],
                               [0, 0, 0, 0]]
     """
-    raise NotImplementedError("TODO Phase 1: implement pad_matrix trong cnn_core/padding.py")
+    if pad < 0:
+        raise ValueError("Padding size 'pad' must be a non-negative integer")
+    if pad == 0:
+        return matrix.copy()
+    
+    H, W = matrix.shape
+    
+    if mode == "zero":
+        padded = np.zeros((H + 2 * pad, W + 2 * pad), dtype=matrix.dtype)
+        padded[pad : pad + H, pad : pad + W] = matrix
+        return padded
+    elif mode == "reflect":
+        padded = np.zeros((H + 2 * pad, W + 2 * pad), dtype=matrix.dtype)
+        padded[pad : pad + H, pad : pad + W] = matrix
+        for i in range(pad):
+            padded[pad - 1 - i, pad : pad + W] = matrix[i + 1, :]
+            padded[pad + H + i, pad : pad + W] = matrix[H - 2 - i, :]
+            
+        for j in range(pad):
+            padded[:, pad - 1 - j] = padded[:, pad + 1 + j]
+            padded[:, pad + W + j] = padded[:, pad + W - 2 - j]
+            
+        return padded
+    else:
+        raise ValueError(f"Unsupported padding mode: '{mode}'. Supported modes are 'zero' and 'reflect'.")

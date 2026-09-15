@@ -25,9 +25,33 @@ def max_pool2d(input: np.ndarray, size: int, stride: int) -> np.ndarray:
         lấy np.max() của cửa sổ đó. Không có padding, không có "kernel"
         chứa trọng số.
     """
-    raise NotImplementedError("TODO Phase 4: implement max_pool2d trong cnn_core/pooling.py")
+    
+    H, W = input.shape
+    H_out = (H - size) // stride + 1
+    W_out = (W - size) // stride + 1
+    
+    output = np.zeros((H_out, W_out), dtype=input.dtype)
+    
+    for i in range(H_out):
+        for j in range(W_out):
+            window = input[i * stride : i * stride + size, j * stride : j * stride + size]
+            output[i, j] = np.max(window)
+    return output
 
 
 def avg_pool2d(input: np.ndarray, size: int, stride: int) -> np.ndarray:
-    """Average pooling — giống max_pool2d nhưng dùng np.mean() thay np.max()."""
-    raise NotImplementedError("TODO Phase 4: implement avg_pool2d trong cnn_core/pooling.py")
+    """Average pooling on a 2D matrix."""
+    H, W = input.shape
+    H_out = (H - size) // stride + 1
+    W_out = (W - size) // stride + 1
+    
+    # Đảm bảo output luôn là kiểu số thực để giữ phần thập phân của np.mean
+    out_dtype = np.float32 if np.issubdtype(input.dtype, np.integer) else input.dtype
+    output = np.zeros((H_out, W_out), dtype=out_dtype)
+    
+    for i in range(H_out):
+        for j in range(W_out):
+            window = input[i * stride : i * stride + size, j * stride : j * stride + size]
+            output[i, j] = np.mean(window)
+            
+    return output

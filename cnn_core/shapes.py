@@ -28,4 +28,22 @@ def conv_output_shape(input_size: int, kernel_size: int, stride: int = 1, paddin
         Kiểm tra chia hết bằng (input_size + 2*padding - kernel_size) % stride == 0
         trước khi return.
     """
-    raise NotImplementedError("TODO Phase 3: implement conv_output_shape trong cnn_core/shapes.py")
+    if stride <= 0:
+        raise ValueError(f'Stride must be postive, got stride={stride}')
+    
+    numerator =input_size + 2 * padding - kernel_size
+    if numerator < 0:
+        raise ValueError(
+            f"Kernel size ({kernel_size}) is larger than padded input size "
+            f"({input_size + 2 * padding}). Params: input_size={input_size}, "
+            f"kernel_size={kernel_size}, stride={stride}, padding={padding}."
+        )
+    if numerator % stride != 0:
+        raise ValueError(
+            f"Invalid dimensions: (input_size + 2*padding - kernel_size) = {numerator} "
+            f"is not divisible by stride={stride}. "
+            f"Params: input_size={input_size}, kernel_size={kernel_size}, "
+            f"stride={stride}, padding={padding}."
+        )
+
+    return numerator // stride + 1

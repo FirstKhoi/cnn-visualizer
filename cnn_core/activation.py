@@ -13,7 +13,7 @@ def relu(x: np.ndarray) -> np.ndarray:
 
     Hint: 1 dòng với np.maximum(0, x). Không dùng vòng lặp.
     """
-    raise NotImplementedError("TODO Phase 4: implement relu trong cnn_core/activation.py")
+    return np.maximum(0, x)
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
@@ -22,4 +22,4 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
     Hint: dùng np.exp(). Chỉ để so sánh với ReLU trên page Activation,
     không dùng trong ConvBlock ở Phase 5.
     """
-    raise NotImplementedError("TODO Phase 4: implement sigmoid trong cnn_core/activation.py")
+    return 1 / (1 + np.exp(-x))

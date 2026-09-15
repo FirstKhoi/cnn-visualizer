@@ -47,7 +47,15 @@ class ConvBlock:
         Hint: chỉ cần lưu lại các tham số vào self.*, không có logic phức
         tạp ở __init__ — toàn bộ tính toán nằm trong forward().
         """
-        raise NotImplementedError("TODO Phase 5: implement ConvBlock.__init__ trong cnn_core/block.py")
+        K, _, C_in, C_out = kernels.shape
+        if bias is not None and bias.shape != (C_out,):
+            raise ValueError(f"Shape of bias {bias.shape} do not match with C_out ({C_out},)")
+        self.kernels = kernels
+        self.bias = bias
+        self.conv_stride = conv_stride
+        self.conv_padding = conv_padding
+        self.pool_size = pool_size
+        self.pool_stride = pool_stride
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """Chạy x qua conv -> relu -> pool.
@@ -66,4 +74,19 @@ class ConvBlock:
                (vòng lặp qua C_out, pool từng lát y[:, :, c], rồi ghép lại
                theo trục cuối) -> shape (H_out, W_out, C_out)
         """
-        raise NotImplementedError("TODO Phase 5: implement ConvBlock.forward trong cnn_core/block.py")
+        y = conv2d_multichannel(x, self.kernels, self.bias, stride=self.conv_stride, padding=self.conv_padding)
+        y = relu(y)
+        H1, W1, C_out = y.shape
+        H_out = (H1 - self.pool_size) // self.pool_stride + 1
+        W_out = (W1 - self.pool_size) // self.pool_stride + 1
+        
+        output = np.zeros((H_out, W_out, C_out), dtype=y.dtype)
+        
+        for c in range(C_out):
+            output[:, :, c] = max_pool2d(
+                y[:, :, c],
+                size=self.pool_size,
+                stride=self.pool_stride
+            )
+            
+        return output

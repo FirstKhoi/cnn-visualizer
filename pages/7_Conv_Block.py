@@ -4,16 +4,26 @@ import streamlit as st
 
 from cnn_core.block import ConvBlock, make_random_kernels
 from viz.matrix_view import fig_feature_maps
+from viz.theme import PAGE_COLORS, callout, hero, inject_base_css
 from viz.widgets import run_or_hint
 
-st.title("7. Conv Block")
-st.markdown(
-    """
-Một "block" CNN cổ điển gần như luôn là **Conv → ReLU → Pool** lặp lại.
-Không train ở đây (không có backprop) — kernel sinh ngẫu nhiên chỉ để quan
-sát forward pass đi qua nhiều kênh trông ra sao, giống nhìn model lúc mới
-khởi tạo, trước khi train.
-"""
+COLOR = PAGE_COLORS[7]
+
+st.set_page_config(page_title="Conv Block — CNN Visualizer", layout="wide")
+inject_base_css()
+
+hero(
+    title="7. Conv Block",
+    subtitle="Conv → ReLU → Pool, lặp lại — đây là 'viên gạch' xây nên mọi CNN cổ điển.",
+    badge="Phase 5",
+    color=COLOR,
+)
+callout(
+    "Không train ở đây (không có backprop) — kernel sinh ngẫu nhiên chỉ để "
+    "quan sát forward pass đi qua nhiều kênh trông ra sao, giống nhìn model "
+    "lúc mới khởi tạo, trước khi train.",
+    color=COLOR,
+    label="Vì sao quan trọng",
 )
 
 
@@ -30,16 +40,17 @@ def make_synthetic_rgb(size: int = 16) -> np.ndarray:
 
 image = make_synthetic_rgb()
 
-col_a, col_b, col_c = st.columns(3)
-num_kernels = col_a.slider("Số kernel", min_value=2, max_value=8, value=4)
-kernel_size = col_b.select_slider("Kernel size", options=[3, 5], value=3)
-seed = col_c.number_input("Seed", min_value=0, value=0)
-
-st.subheader("Ảnh input (tổng hợp, 3 kênh)")
-fig, ax = plt.subplots(figsize=(3, 3))
-ax.imshow(image)
-ax.axis("off")
-st.pyplot(fig)
+with st.container(border=True):
+    col_a, col_b, col_c, col_img = st.columns([1, 1, 1, 1.2])
+    num_kernels = col_a.slider("Số kernel", min_value=2, max_value=8, value=4)
+    kernel_size = col_b.select_slider("Kernel size", options=[3, 5], value=3)
+    seed = col_c.number_input("Seed", min_value=0, value=0)
+    with col_img:
+        st.caption("Ảnh input (tổng hợp, 3 kênh)")
+        fig, ax = plt.subplots(figsize=(2.4, 2.4))
+        ax.imshow(image)
+        ax.axis("off")
+        st.pyplot(fig)
 
 kernels = make_random_kernels(num_kernels, kernel_size, in_channels=3, seed=int(seed))
 
@@ -59,10 +70,10 @@ output = run_or_hint(
     todo_hint="Implement `ConvBlock.forward` trong `cnn_core/block.py` (Phase 5) — cần conv2d_multichannel, relu, max_pool2d đã xong trước đó.",
 )
 
-st.subheader(f"Feature maps sau Conv -> ReLU -> Pool: {output.shape}")
-st.pyplot(fig_feature_maps(output, titles=[f"kernel {i}" for i in range(num_kernels)]))
-
-st.caption(
-    f"Input {image.shape} -> {num_kernels} kernel {kernel_size}x{kernel_size} -> "
-    f"output {output.shape}. Mỗi ô là 1 feature map — kernel khác nhau bắt pattern khác nhau."
-)
+with st.container(border=True):
+    st.markdown(f"#### Feature maps sau Conv → ReLU → Pool: `{output.shape}`")
+    st.pyplot(fig_feature_maps(output, titles=[f"kernel {i}" for i in range(num_kernels)]))
+    st.caption(
+        f"Input {image.shape} -> {num_kernels} kernel {kernel_size}x{kernel_size} -> "
+        f"output {output.shape}. Mỗi ô là 1 feature map — kernel khác nhau bắt pattern khác nhau."
+    )
