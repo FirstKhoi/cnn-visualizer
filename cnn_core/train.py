@@ -59,7 +59,7 @@ def load_digits_split(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """-> (x_train, y_train, x_val, y_val), ảnh shape (N, 8, 8, 1) trong [0, 1].
 
-    label_noise: tỉ lệ ảnh TRAIN bị gán lại nhãn ngẫu nhiên (val luôn sạch) —
+    label_noise: tỉ lệ ảnh TRAIN bị đổi sang 1 nhãn SAI ngẫu nhiên (val luôn sạch) —
     mô phỏng dữ liệu gán nhãn sai để thấy mạng "học thuộc" nhiễu ra sao.
     """
     if not 1 <= train_size <= MAX_TRAIN_SIZE:
@@ -71,7 +71,8 @@ def load_digits_split(
     if label_noise > 0:
         rng = np.random.default_rng(7)
         flip = rng.random(len(y_tr)) < label_noise
-        y_tr[flip] = rng.integers(0, 10, flip.sum())
+        # cộng thêm 1..9 (mod 10) -> nhãn bị chọn chắc chắn đổi sang lớp KHÁC
+        y_tr[flip] = (y_tr[flip] + rng.integers(1, 10, flip.sum())) % 10
     return x_tr, y_tr, x[:VAL_SIZE], y[:VAL_SIZE]
 
 

@@ -4,6 +4,8 @@ Streamlit. Đã viết sẵn hoàn chỉnh — không phải phần bạn cần 
 
 from __future__ import annotations
 
+from itertools import cycle
+
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -224,7 +226,7 @@ def fig_lines(
     """Nhiều đường trên 1 trục, mỗi series 1 màu. xlabels (tuỳ chọn) đặt tên
     cho từng điểm trên trục x (vd tên lớp) thay vì số 0, 1, 2..."""
     fig, ax = plt.subplots(figsize=figsize)
-    for color, (name, values) in zip(RUN_COLORS, series.items()):
+    for color, (name, values) in zip(cycle(RUN_COLORS), series.items()):
         ax.plot(range(len(values)), values, marker="o", markersize=4, linewidth=2, color=color, label=name)
     if xlabels is not None:
         ax.set_xticks(range(len(xlabels)))
@@ -250,7 +252,7 @@ def fig_curves(runs: list[tuple[str, dict]], metric: str = "acc", figsize: tuple
     metric: "acc" hoặc "loss".
     """
     fig, ax = plt.subplots(figsize=figsize)
-    for color, (label, hist) in zip(RUN_COLORS, runs):
+    for color, (label, hist) in zip(cycle(RUN_COLORS), runs):
         train_vals, val_vals = hist[f"train_{metric}"], hist[f"val_{metric}"]
         epochs = np.arange(1, len(val_vals) + 1)
         ax.plot(epochs, train_vals, linestyle="--", linewidth=1.5, color=color, alpha=0.7)

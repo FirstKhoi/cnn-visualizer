@@ -20,10 +20,12 @@ hero(
     color=COLOR,
 )
 callout(
-    "Trang 8 cho thấy std activation co lại ~½ sau mỗi block. Khi train, trọng số "
-    "mỗi lớp thay đổi liên tục nên phân phối input của lớp sau cũng trôi theo — lớp "
-    "sau phải liên tục thích nghi lại. BatchNorm chuẩn hoá lại phân phối đó sau "
-    "mỗi lớp, rồi cho mạng tự học scale (γ) và shift (β) phù hợp.",
+    "Trang 8 cho thấy std activation co lại mạnh qua mỗi block. BatchNorm chuẩn hoá "
+    "lại phân phối sau mỗi lớp, rồi cho mạng tự học scale (γ) và shift (β) phù hợp. "
+    "Giải thích gốc ('internal covariate shift' — lớp sau phải đuổi theo phân phối trôi "
+    "của lớp trước) đã bị nghiên cứu sau này (Santurkar et al., 2018) đặt dấu hỏi; cách "
+    "hiểu được chấp nhận hơn: BN làm bề mặt loss mượt hơn nên tối ưu dễ hơn và chịu "
+    "được lr lớn hơn — xem (d).",
     color=COLOR,
     label="Vì sao quan trọng",
 )
@@ -128,8 +130,10 @@ with st.container(border=True):
         st.pyplot(fig_activation_hist(results["Có BN"], color=COLOR, max_cols=5))
     st.caption(
         "Không BN: std nhân lên đều đặn qua mỗi lớp (×0.5 → co về ~0, ×2 → nổ), nên sau "
-        "vài chục lớp tín hiệu và gradient đều hỏng. He init đúng giữ được std lúc khởi "
-        "tạo, nhưng trong lúc train trọng số trôi đi. Có BN: std mỗi lớp luôn được kéo về "
+        "vài chục lớp tín hiệu và gradient đều hỏng. He init giữ std ổn định chỉ theo KỲ VỌNG "
+        "(nhiều kênh, ảnh lớn) — ở đây ảnh 8×8 với viền padding 0 chiếm nhiều chỗ nên std vẫn "
+        "trôi xuống dần, và còn trôi tiếp khi trọng số đổi lúc train. Có BN: std mỗi lớp "
+        "luôn được kéo về "
         "cùng mức, bất kể khởi tạo."
     )
 

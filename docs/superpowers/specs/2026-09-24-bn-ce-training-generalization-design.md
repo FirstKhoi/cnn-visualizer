@@ -127,10 +127,12 @@ Thêm `ConvBlock.forward_steps(x)` → `[("conv", y1), ("relu", y2), ("pool", y3
 Train cache bằng `st.cache_resource` theo config (`TrainConfig` frozen, hash
 được) qua `viz/widgets.py::cached_train`, dùng chung trang 9–12.
 
-Kết quả đo ở prototype (3 seed): full data val acc ~0.99 trong ~1 giây; preset
-overfit (300 ảnh, 30% nhãn sai, không BN, 60 epoch) train acc 0.98, val đỉnh
-0.87 rồi rơi còn 0.78; dropout 0.5 → val cuối ~0.86, weight decay 0.02 →
-~0.84, aug → ~0.83; BN không cải thiện val (trang 12 nói rõ điều này).
+Kết quả đo (trung bình 3 seed, sau khi `label_noise` được sửa thành tỉ lệ nhãn
+SAI thật): full data val acc ~0.99 trong ~1 giây; preset overfit (300 ảnh, 30%
+nhãn sai, không BN, 60 epoch) train acc ~0.95, val đỉnh ~0.88 rồi rơi còn
+~0.75; dropout 0.5 → val cuối ~0.86, weight decay 0.02 → ~0.90, aug → ~0.86;
+BN không cải thiện val; 1297 ảnh → val đỉnh ~0.97 nhưng cuối ~0.74 (vẫn học
+thuộc nhãn sai nếu train đủ lâu).
 
 ## Test
 

@@ -203,8 +203,8 @@ với `torch.nn.functional.conv2d` / `batch_norm`.
 Dataset `load_digits` (8×8, 10 lớp), 500 ảnh val cố định. Mô hình:
 `Conv(16) → [BN] → ReLU → Pool → Conv(32) → [BN] → ReLU → Pool → Dense(128→64)
 → ReLU → [Dropout] → Dense(64→10)` — cố ý dư sức chứa để overfit hiện rõ.
-SGD momentum 0.9, weight decay chỉ áp cho `W`. Tuỳ chọn `label_noise` gán lại
-nhãn ngẫu nhiên cho 1 phần ảnh train để mô phỏng dữ liệu bẩn. Train full data
+SGD momentum 0.9, weight decay chỉ áp cho `W`. Tuỳ chọn `label_noise` đổi 1 tỉ lệ
+ảnh train sang nhãn sai ngẫu nhiên để mô phỏng dữ liệu bẩn. Train full data
 ~1 giây, val acc ~99%.
 
 ## Kiểm thử

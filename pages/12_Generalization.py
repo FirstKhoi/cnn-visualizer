@@ -153,9 +153,10 @@ with c2:
         label="BatchNorm",
     )
     callout(
-        "Nhiều ảnh thật hơn là cách chắc chắn nhất: quy luật chung lặp lại qua nhiều ảnh, "
-        "còn nhiễu thì không — học thuộc trở nên đắt hơn học quy luật. Mọi kỹ thuật khác "
-        "chỉ là cách giả lập điều này khi không có thêm data.",
+        "Nhiều ảnh thật hơn nâng TRẦN cao nhất: quy luật chung lặp lại qua nhiều ảnh, còn "
+        "nhiễu thì không (xem cột 'Val tốt nhất'). Nhưng nhìn 'Val acc cuối': train đủ lâu, "
+        "mạng vẫn học thuộc được cả nhãn sai. Thêm data nâng trần; regularization và early "
+        "stopping giữ mạng ở gần trần đó.",
         color=COLOR,
         label="Thêm data",
     )

@@ -27,7 +27,7 @@ def test_label_noise_only_touches_train_labels():
     _, y_clean, _, y_val_clean = load_digits_split(500)
     _, y_noisy, _, y_val_noisy = load_digits_split(500, label_noise=0.5)
     changed = np.mean(y_clean != y_noisy)
-    assert 0.3 < changed < 0.6  # 50% bị gán lại, ~1/10 trong số đó trùng nhãn cũ
+    assert 0.4 < changed < 0.6
     np.testing.assert_array_equal(y_val_clean, y_val_noisy)
 
 
@@ -69,3 +69,15 @@ def test_train_is_deterministic_for_same_seed():
     _, h1 = train(cfg)
     _, h2 = train(cfg)
     assert h1["val_loss"] == h2["val_loss"]
+
+
+def test_label_noise_rate_is_the_fraction_of_wrong_labels():
+    _, y_clean, _, _ = load_digits_split(MAX_TRAIN_SIZE)
+    _, y_noisy, _, _ = load_digits_split(MAX_TRAIN_SIZE, label_noise=0.5)
+    assert abs(np.mean(y_clean != y_noisy) - 0.5) < 0.03  # nhãn bị chọn luôn đổi sang lớp KHÁC
+
+
+@pytest.mark.parametrize("bad", [-0.1, 1.5])
+def test_load_digits_split_rejects_bad_label_noise(bad):
+    with pytest.raises(ValueError):
+        load_digits_split(100, label_noise=bad)

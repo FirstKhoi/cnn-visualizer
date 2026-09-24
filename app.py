@@ -110,7 +110,7 @@ PAGES = [
     (8, "pages/8_Full_Pipeline.py", "Full Pipeline", "Xếp nhiều block, forward 1 ảnh thật qua toàn bộ chuỗi."),
     (9, "pages/9_BatchNorm.py", "BatchNorm", "Chuẩn hoá từng kênh để tín hiệu không tắt/nổ qua độ sâu."),
     (10, "pages/10_Softmax_Cross_Entropy.py", "Softmax + CE", "Logits → xác suất → loss: mạng sai đến mức nào."),
-    (11, "pages/11_Backprop_Training.py", "Backprop & Training", "Gradient chảy ngược, kernel random thành bộ dò nét."),
+    (11, "pages/11_Backprop_Training.py", "Backprop & Training", "Gradient chảy ngược, đo xem mỗi lớp thật sự học được bao nhiêu."),
     (12, "pages/12_Generalization.py", "Generalization", "Vì sao dropout, weight decay, augmentation kéo val lên."),
 ]
 

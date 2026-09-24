@@ -20,8 +20,8 @@ hero(
 callout(
     "Trang 1–8 dùng kernel random. Train = lặp lại: forward → loss → backward (chain "
     "rule: mỗi lớp nhận ∂L/∂output, trả về ∂L/∂input cho lớp trước và ∂L/∂W cho chính "
-    "nó) → trừ gradient × lr vào trọng số. Sau vài nghìn bước như vậy, kernel tự biến "
-    "thành các bộ dò nét/cạnh có ý nghĩa.",
+    "nó) → trừ gradient × lr vào trọng số. Lặp vài trăm bước như vậy, mạng từ đoán "
+    "bừa thành đoán đúng ~99% — trang này đo xem trọng số THẬT SỰ đã đổi bao nhiêu.",
     color=COLOR,
     label="Vì sao quan trọng",
 )
@@ -54,12 +54,14 @@ final_loss = history["train_loss"][-1]
 stuck = not np.isfinite(final_loss) or final_loss > 0.9 * np.log(10)
 if stuck and lr < 0.1:
     st.warning(
-        f"Chưa học được gì đáng kể sau {epochs} epoch (train loss {final_loss:.2f} ≈ ln 10) — "
+        f"Chưa học được gì đáng kể sau {epochs} epoch (train loss {final_loss:.2f}, chưa xuống "
+        "dưới mức đoán bừa ln 10 = 2.30) — "
         f"lr = {lr} nhỏ nên mỗi bước đi rất ngắn. Tăng số epoch hoặc lr."
     )
 elif stuck:
     st.error(
-        f"Mạng không học được (train loss cuối {final_loss:.2f} ≈ ln 10 = 2.30, tức đoán bừa) — "
+        f"Mạng không học được (train loss cuối {final_loss:.2f}, không tốt hơn mức đoán bừa "
+        "ln 10 = 2.30) — "
         f"lr = {lr} quá lớn: mỗi bước nhảy vượt quá đáy, trọng số văng ra xa, nhiều ReLU 'chết' "
         "(luôn ra 0) và không bao giờ hồi lại. Giảm lr xuống."
     )
@@ -99,21 +101,52 @@ with st.container(border=True):
     c2.caption("Sau khi train")
     c2.pyplot(fig_feature_maps(model[0].params["W"][:, :, 0, :], max_cols=8, cmap=DIV, shared_scale=True))
 
+    w0, w1 = init_model[0].params["W"], model[0].params["W"]
+    delta = w1 - w0
+    steps = epochs * int(np.ceil(cfg.train_size / cfg.batch_size))
+    st.markdown(f"**ΔW = W sau − W đầu** (thang màu riêng) — sau {steps} bước")
+    st.pyplot(fig_feature_maps(delta[:, :, 0, :], max_cols=8, cmap=DIV, shared_scale=True))
+    rel = [np.linalg.norm(layer.params["W"] - w_init.params["W"]) / np.linalg.norm(w_init.params["W"])
+           for layer, w_init in zip(model, init_model) if "W" in layer.params]
+    small_change = rel[0] < 0.3
+    per_layer = ", ".join(f"{n} {r:.0%}" for n, r in zip(param_layer_names(model), rel))
+    if small_change:
+        summary = (
+            f"Conv 1 chỉ đổi {rel[0]:.0%} (‖ΔW‖/‖W đầu‖) — hai lưới trên gần như giống hệt. Kernel "
+            "3×3 random vốn đã là những bộ dò cạnh/độ sáng thô; phần lớn 'việc học' nằm ở các lớp "
+            "sau, nơi các đặc trưng thô này được tổ hợp lại."
+        )
+    else:
+        summary = (
+            f"Conv 1 đổi {rel[0]:.0%} (‖ΔW‖/‖W đầu‖) — lr lớn / không có BN đẩy trọng số đi xa hơn "
+            "nhiều. Ở cấu hình mặc định (lr 0.01, có BN) Conv 1 chỉ đổi khoảng 17%."
+        )
+    st.caption(f"{summary} Mức đổi từng lớp: {per_layer} — lớp càng sâu đổi càng nhiều.")
+
 with st.container(border=True):
     _, _, x_val, y_val = load_digits_split()
     idx = st.slider("Ảnh val", 0, len(x_val) - 1, 3)
     image = x_val[idx : idx + 1]
-    st.markdown(f"**Feature map sau Conv 1 → ReLU của ảnh chữ số {y_val[idx]}**")
+    order = "Conv 1 → BN → ReLU" if use_bn else "Conv 1 → ReLU"
+    st.markdown(f"**Output riêng của Conv 1 cho ảnh chữ số {y_val[idx]}** (trong mạng: {order})")
 
-    def first_relu(m):
-        return next(out for name, out in forward_trace(m, image) if name == "ReLU")[0]
+    def first_conv(m):
+        # chỉ lấy output Conv 1 (trước BN/ReLU) để so đúng phần do KERNEL thay đổi
+        return next(out for name, out in forward_trace(m, image) if name == "Conv2D")[0]
 
     c1, c2 = st.columns(2)
     c1.caption("Lúc khởi tạo")
-    c1.pyplot(fig_feature_maps(first_relu(init_model), max_cols=8, cmap="magma", shared_scale=True))
+    c1.pyplot(fig_feature_maps(first_conv(init_model), max_cols=8, cmap=DIV, shared_scale=True))
     c2.caption("Sau khi train")
-    c2.pyplot(fig_feature_maps(first_relu(model), max_cols=8, cmap="magma", shared_scale=True))
-    st.caption(
-        "Sau khi train, nhiều kernel trở thành bộ dò nét ngang / dọc / chéo cụ thể — mỗi map "
-        "sáng lên ở đúng phần nét của chữ số mà kernel đó 'thích'."
-    )
+    c2.pyplot(fig_feature_maps(first_conv(model), max_cols=8, cmap=DIV, shared_scale=True))
+    if small_change:
+        st.caption(
+            "Kernel đổi ít nên feature map của Conv 1 trước và sau train cũng na ná nhau: mỗi map "
+            "đã sáng lên ở những nét ngang / dọc / chéo nhất định ngay từ lúc random. Mạng không "
+            "cần 'phát minh' bộ dò cạnh — nó học cách DÙNG chúng ở các lớp sau."
+        )
+    else:
+        st.caption(
+            "Kernel đổi nhiều nên feature map khác hẳn lúc khởi tạo. So với cấu hình mặc định "
+            "(Conv 1 đổi ~17%, val ~99%): mạng không cần đổi nhiều kernel Conv 1 mới đoán tốt."
+        )

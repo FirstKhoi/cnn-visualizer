@@ -129,7 +129,7 @@ c1, c2 = st.columns(2)
 c1.pyplot(fig_lines({"std": [float(a.std()) for _, a in activations]}, xlabels=names, ylabel="std"))
 c2.pyplot(fig_lines({"% số 0": [100 * float(np.mean(a == 0)) for _, a in activations]}, xlabels=names, ylabel="% = 0"))
 callout(
-    "Kernel random N(0, 0.1) làm std co lại ~½ sau mỗi block, và ReLU tắt ngày càng "
+    "Kernel random N(0, 0.1) làm std co lại mạnh qua mỗi block (thường còn ½ tới ⅙ — xem biểu đồ), và ReLU tắt ngày càng "
     "nhiều neuron. Xếp thêm vài chục lớp, tín hiệu gần như biến mất (hoặc nổ tung nếu "
     "kernel lớn) — gradient lúc train cũng vậy. Đây chính là bài toán mà <b>Batch "
     "Normalization</b> (trang 9) sinh ra để giải.",

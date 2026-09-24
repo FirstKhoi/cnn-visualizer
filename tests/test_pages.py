@@ -47,3 +47,49 @@ def test_generalization_page_preset_run_and_clear():
     assert not at.exception
     at.button[1].click().run()
     assert at.info and not at.exception
+
+
+def test_training_page_flags_collapse_without_batchnorm_too():
+    at = AppTest.from_file(str(ROOT / "pages" / "11_Backprop_Training.py"), default_timeout=120).run()
+    at.toggle[0].set_value(False).run()
+    at.select_slider[0].set_value(0.3).run()
+    assert not at.exception
+    errors = [e.value for e in at.error]
+    assert any("không học được" in e for e in errors)
+    assert not any("≈ ln 10" in e for e in errors)  # loss có thể > 2.30 nhiều, đừng gọi là "≈"
+
+
+@pytest.mark.parametrize("use_bn,label", [(True, "Conv 1 → BN → ReLU"), (False, "Conv 1 → ReLU")])
+def test_training_page_shows_weight_change_and_real_layer_order(use_bn, label):
+    at = AppTest.from_file(str(ROOT / "pages" / "11_Backprop_Training.py"), default_timeout=120).run()
+    at.toggle[0].set_value(use_bn).run()
+    text = " ".join(m.value for m in at.markdown) + " ".join(c.value for c in at.caption)
+    assert "ΔW" in text
+    assert label in text
+
+
+# Các câu từng nói sai so với chính số liệu app đo được (xem final review)
+FALSE_CLAIMS = [
+    "co lại ~½",
+    "He init đúng giữ được std lúc khởi tạo",
+    "cách chắc chắn nhất",
+    "vài nghìn bước",
+    "kernel random thành bộ dò nét",
+    "kernel tự biến",
+]
+
+
+def test_page_copy_has_no_known_false_claims():
+    for path in PAGES:
+        source = path.read_text()
+        for claim in FALSE_CLAIMS:
+            assert claim not in source, f"{path.name}: {claim!r}"
+
+
+def test_training_page_weight_change_copy_follows_the_measurement():
+    """lr 0.1 đẩy Conv 1 đổi >100% — trang không được nói 'gần như giống hệt' nữa."""
+    at = AppTest.from_file(str(ROOT / "pages" / "11_Backprop_Training.py"), default_timeout=120).run()
+    at.select_slider[0].set_value(0.1).run()
+    captions = " ".join(c.value for c in at.caption)
+    assert "gần như giống hệt" not in captions
+    assert "na ná" not in captions
