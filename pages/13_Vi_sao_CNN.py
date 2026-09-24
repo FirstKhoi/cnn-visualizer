@@ -38,6 +38,16 @@ callout(
     label="Ý chính",
 )
 
+
+def human_bytes(n: float) -> str:
+    """37 440 -> '37.4 KB' — tự chọn đơn vị để số nhỏ không hiện thành '0.00 GB'."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1000:
+            return f"{n:,.1f} {unit}"
+        n /= 1000
+    return f"{n:,.1f} TB"
+
+
 # ---------------------------------------------------------------------------
 # (a) Đếm tham số
 # ---------------------------------------------------------------------------
@@ -63,7 +73,7 @@ with st.container(border=True):
             {
                 "Mỗi output nhìn bao nhiêu input": [f"{k}×{k}×{c_in} = {k * k * c_in}", f"{size}×{size}×{c_in} = {n_in:,}"],
                 "Số bộ trọng số riêng": [f"{c_out} (dùng chung cho {h_out}×{h_out} vị trí)", f"{n_out:,} (mỗi output 1 bộ)"],
-                "Bộ nhớ float32": [f"{conv_params * 4 / 1e3:,.1f} KB", f"{dense_params * 4 / 1e9:,.2f} GB"],
+                "Bộ nhớ float32": [human_bytes(conv_params * 4), human_bytes(dense_params * 4)],
             },
             index=["Conv", "Dense"],
         )
@@ -120,18 +130,20 @@ with st.container(border=True):
 
     pool = MaxPool2D(2, 2)
     shifts = [0, 1, 2, 3, 4]
-    conv_err, pool_err = [], []
+    conv_err, conv_moved, pool_err = [], [], []
     for s in shifts:
         fs = conv1.forward(shift_images(image, 0, s), train=False)
         crop = slice(s + 1, -(s + 1))
         ref = shift_images(f, 0, s)
         conv_err.append(float(np.linalg.norm((ref - fs)[:, crop, crop]) / np.linalg.norm(f[:, crop, crop])))
+        conv_moved.append(float(np.linalg.norm(fs - f) / np.linalg.norm(f)))  # baseline: không pool, không dịch lại
         p0, ps = pool.forward(f), pool.forward(fs)
         pool_err.append(float(np.linalg.norm(ps - p0) / np.linalg.norm(p0)))
     st.pyplot(
         fig_lines(
             {
                 "conv: ‖dịch(f(x)) − f(dịch x)‖ / ‖f‖ (equivariance)": conv_err,
+                "conv, không pool: ‖f(dịch x) − f(x)‖ / ‖f‖ (invariance)": conv_moved,
                 "sau max pool: ‖pool(f(dịch x)) − pool(f(x))‖ / ‖pool‖ (invariance)": pool_err,
             },
             xlabels=[f"dịch {s}px" for s in shifts],
@@ -139,10 +151,16 @@ with st.container(border=True):
             figsize=(9, 3.2),
         )
     )
+    pool_effect = (
+        f"max pool 2×2 kéo xuống còn {pool_err[1]:.0%} — bớt nhạy, nhưng chỉ bất biến MỘT PHẦN"
+        if pool_err[1] < conv_moved[1]
+        else f"sau max pool 2×2 vẫn lệch {pool_err[1]:.0%} — ở ảnh này pool không giúp được"
+    )
     st.caption(
-        f"Conv luôn equivariant (đường dưới ≈ 0). Max pool 2×2 chỉ cho bất biến MỘT PHẦN: dịch 1px "
-        f"đã làm map sau pool đổi {pool_err[1]:.0%}, dịch 4px đổi {pool_err[4]:.0%}. CNN không tự "
-        "động bất biến với dịch chuyển — phần (c) đo hậu quả."
+        f"Conv luôn equivariant (đường ≈ 0): dịch ảnh thì map dịch theo đúng từng pixel. Nhưng "
+        f"equivariant ≠ bất biến. Không có pool, map conv lệch {conv_moved[1]:.0%} khi ảnh dịch 1px; "
+        f"{pool_effect} (dịch 4px vẫn lệch {pool_err[4]:.0%}). CNN không tự động bất biến với dịch "
+        "chuyển — phần (c) đo hậu quả."
     )
 
 # ---------------------------------------------------------------------------
@@ -194,19 +212,22 @@ with st.container(border=True):
     first, last = table.iloc[0], table.iloc[-1]
     gap_small = first["CNN — val"] - first["MLP — val"]
     gap_full = last["CNN — val"] - last["MLP — val"]
+    gap_shift_small = first["CNN — val dịch 1px"] - first["MLP — val dịch 1px"]
     gap_shift = last["CNN — val dịch 1px"] - last["MLP — val dịch 1px"]
+    n_first, n_last = int(first["Số ảnh train"]), int(last["Số ảnh train"])
     st.caption(
-        f"Ảnh gốc: CNN − MLP = {gap_small:+.1%} với {int(first['Số ảnh train'])} ảnh, {gap_full:+.1%} với "
-        f"{int(last['Số ảnh train'])} ảnh. Ảnh dịch 1px: {gap_shift:+.1%} "
+        f"Ảnh gốc: CNN − MLP = {gap_small:+.1%} với {n_first} ảnh, {gap_full:+.1%} với {n_last} ảnh. "
+        f"Ảnh dịch 1px: {gap_shift_small:+.1%} với {n_first} ảnh, {gap_shift:+.1%} với {n_last} ảnh "
         f"(CNN {last['CNN — val dịch 1px']:.0%} vs MLP {last['MLP — val dịch 1px']:.0%}). "
         f"CNN dùng ít hơn {mlp_params - cnn_params:,} tham số."
     )
     callout(
-        "Digits của sklearn đã được <b>căn giữa và chuẩn hoá</b> sẵn, nên trên ảnh gốc MLP "
-        "gần theo kịp — ở đây locality không cứu được nhiều vì ảnh chỉ có 64 pixel. Lợi thế "
-        "thật của CNN hiện ở 2 chỗ: <b>ít tham số hơn</b> cho cùng độ chính xác, và <b>chịu dịch "
-        "chuyển tốt hơn hẳn</b> vì mỗi kernel đã thấy pattern ở mọi vị trí. Nhưng CNN cũng rơi "
-        "mạnh khi dịch: 1px là 12% bề rộng ảnh 8×8, max pool chỉ bất biến cục bộ, còn lớp Dense "
+        "Digits của sklearn đã được <b>căn giữa và chuẩn hoá</b> sẵn, nên trên ảnh gốc CNN và "
+        "MLP <b>gần hoà</b> — ở đây locality không cứu được nhiều vì ảnh chỉ có 64 pixel. Lợi thế "
+        "của CNN hiện ở 2 chỗ: <b>ít tham số hơn</b> cho độ chính xác tương đương, và <b>chịu dịch "
+        "chuyển tốt hơn — rõ nhất khi đủ data</b> (xem bảng), vì mỗi kernel đã thấy pattern ở mọi "
+        "vị trí. Nhưng CNN cũng rơi mạnh khi dịch: 1px là 12.5% bề rộng ảnh 8×8, max pool chỉ "
+        "bất biến cục bộ, còn lớp Dense "
         "cuối vẫn nhìn vị trí tuyệt đối. Vì vậy vẫn cần augmentation (trang 12); CNN hiện đại "
         "thay Dense cuối bằng global average pooling.",
         color=COLOR,

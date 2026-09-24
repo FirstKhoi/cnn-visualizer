@@ -27,7 +27,7 @@ thuộc.
 
 ## Tính năng
 
-App gồm 14 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học. Trang 1–8 (phần 1) là forward pass với kernel random; trang 9–12 (phần 2) train thật 1 CNN nhỏ để thấy BatchNorm, loss, backprop và overfit; trang 13–14 (phần 3) đi vào bản chất: vì sao conv thắng Dense và mạng thật sự nhìn thấy gì:
+App gồm 14 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học. Trang 1–8 (phần 1) là forward pass với kernel random; trang 9–12 (phần 2) train thật 1 CNN nhỏ để thấy BatchNorm, loss, backprop và overfit; trang 13–14 (phần 3) đi vào bản chất: conv khác Dense ở đâu, hơn ở đâu, và mạng thật sự nhìn thấy gì:
 
 | # | Trang | Nội dung |
 |---|---|---|

@@ -76,6 +76,13 @@ FALSE_CLAIMS = [
     "vài nghìn bước",
     "kernel random thành bộ dò nét",
     "kernel tự biến",
+    # final review trang 13–14
+    "gần theo kịp",
+    "chuyển tốt hơn hẳn",
+    "conv thắng Dense",
+    "chỉ cần 1 đường thẳng",
+    "12% bề rộng",
+    "vùng đậm",
 ]
 
 
@@ -139,3 +146,45 @@ def test_no_raw_html_in_text_elements_that_do_not_render_it():
                 if "unsafe_allow_html=True" not in segment:
                     for tag in ("<i>", "<b>", "<br>", "<code>"):
                         assert tag not in segment, f"{path.name}:{node.lineno} dùng {tag} trong {node.func.attr}"
+
+
+def test_receptive_field_caption_never_contradicts_its_measurement():
+    """16 cấu hình (block × kernel × pool): câu chữ phải đi theo số đo center_concentration."""
+    at = AppTest.from_file(str(ROOT / "pages" / "14_Mang_nhin_thay_gi.py"), default_timeout=180).run()
+    for use_pool in (True, False):
+        at.toggle[0].set_value(use_pool).run()
+        for k in (3, 5):
+            at.select_slider[0].set_value(k).run()
+            for blocks in (1, 2, 3, 4):
+                at.slider[0].set_value(blocks).run()
+                assert not at.exception
+                caption = next(c.value for c in at.caption if c.value.startswith("Công thức"))
+                where = (use_pool, k, blocks)
+                assert not ("không đều" in caption and "khá đều" in caption), where
+                assert "100% diện tích" not in caption, where
+                if "khá đều" in caption:
+                    assert "nhiều đường đi" not in caption, where
+
+
+def test_why_cnn_page_reports_shift_gap_at_both_ends_with_bn_off():
+    at = AppTest.from_file(str(ROOT / "pages" / "13_Vi_sao_CNN.py"), default_timeout=180).run()
+    at.toggle[0].set_value(False).run()
+    assert not at.exception
+    caption = next(c.value for c in at.caption if c.value.startswith("Ảnh gốc"))
+    assert "Ảnh dịch 1px:" in caption and caption.count("với 50 ảnh") == 2
+    assert any("Không có pool" in c.value for c in at.caption)  # baseline cho biểu đồ (b)
+
+
+def test_why_cnn_page_memory_uses_readable_units():
+    at = AppTest.from_file(str(ROOT / "pages" / "13_Vi_sao_CNN.py"), default_timeout=180).run()
+    at.select_slider[0].set_value(8).run()
+    memory = list(at.table[0].value["Bộ nhớ float32"])
+    assert not any(m.startswith("0.0") for m in memory), memory
+
+
+def test_saliency_section_copy_follows_selection():
+    at = AppTest.from_file(str(ROOT / "pages" / "14_Mang_nhin_thay_gi.py"), default_timeout=180).run()
+    occlusion = next(c.value for c in at.caption if c.value.startswith("Occlusion"))
+    assert "xanh" in occlusion  # map có số âm -> colormap phân kỳ, gọi đúng tên màu
+    at.selectbox[0].set_value("Overfit (300 ảnh, 30% nhãn sai)").run()
+    assert not any("Đổi sang mô hình overfit" in c.value for c in at.caption)

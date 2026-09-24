@@ -71,24 +71,31 @@ with st.container(border=True):
     st.pyplot(
         fig_lines(
             {"|gradient| trên hàng qua tâm": list(profile / profile.max())},
-            xlabels=[str(i - r // 2) for i in range(r)] if r <= 40 else None,
+            x_values=[i - r // 2 for i in range(r)],
             xlabel="vị trí so với tâm (px)",
             ylabel="ảnh hưởng (chuẩn hoá)",
             figsize=(9, 3.0),
         )
     )
-    spread = (
-        "ảnh hưởng dồn rõ về giữa"
-        if share > 1.5 * area
-        else "ảnh hưởng còn khá đều — thêm block để thấy nó dồn về giữa"
+    formula = (
+        "Công thức: r ← r + (k − 1)·jump, jump ← jump·stride — pool nhân đôi bước nhảy nên vùng "
+        "nhìn tăng rất nhanh. "
     )
-    st.caption(
-        f"Công thức: r ← r + (k − 1)·jump, jump ← jump·stride — pool nhân đôi bước nhảy nên vùng "
-        f"nhìn tăng rất nhanh. Nhưng vùng {r}×{r} không đều: hình vuông giữa chiếm {area:.0%} diện "
-        f"tích mà mang {share:.0%} ảnh hưởng, mép vùng chỉ còn {edge:.0%} so với tâm — {spread}. "
-        "Pixel ở giữa có nhiều đường đi tới neuron hơn pixel ở mép, nên receptive field "
-        "*hiệu dụng* nhỏ hơn lý thuyết và càng sâu càng dồn về giữa (Luo et al., 2016)."
-    )
+    if area >= 1.0:  # vùng quá nhỏ: "hình vuông giữa" đã là cả vùng, không có gì để so
+        detail = f"Vùng {r}×{r} còn quá nhỏ để so phần giữa với phần mép — thêm block để thấy."
+    elif share > 1.5 * area:
+        detail = (
+            f"Nhưng vùng {r}×{r} không đều: hình vuông giữa chiếm {area:.0%} diện tích mà mang "
+            f"{share:.0%} ảnh hưởng, mép vùng chỉ còn {edge:.0%} so với tâm. Pixel ở giữa có nhiều "
+            "đường đi tới neuron hơn pixel ở mép, nên receptive field *hiệu dụng* nhỏ hơn lý "
+            "thuyết và càng sâu càng dồn về giữa (Luo et al., 2016)."
+        )
+    else:
+        detail = (
+            f"Ở độ sâu này ảnh hưởng trong vùng {r}×{r} còn khá đều (hình vuông giữa: {area:.0%} "
+            f"diện tích, {share:.0%} ảnh hưởng) — thêm block để thấy nó dồn về giữa."
+        )
+    st.caption(formula + detail)
 
 # ---------------------------------------------------------------------------
 # (b) Biểu diễn qua từng lớp
@@ -126,7 +133,8 @@ with st.container(border=True):
     )
     callout(
         "Mỗi lớp là 1 phép biến đổi không gian. Mạng đã train uốn dữ liệu sao cho ảnh cùng "
-        "chữ số co cụm lại, khác chữ số đẩy ra xa — tới logits thì chỉ cần 1 đường thẳng là "
+        "chữ số co cụm lại, khác chữ số đẩy ra xa — tới các lớp cuối, 1 bộ phân loại tuyến "
+        "tính (10 điểm số + argmax) là đủ "
         "tách được. Mạng random cũng biến đổi dữ liệu, nhưng không có mục tiêu nên cấu trúc "
         "ban đầu còn bị xoá dần. PCA chỉ giữ 2 trong nhiều chiều nên cụm trông chồng lên nhau "
         "hơn thực tế — tin con số 'tách lớp' hơn hình.",
@@ -164,10 +172,16 @@ with st.container(border=True):
         st.pyplot(fig)
     p2.pyplot(fig_feature_maps(occ[:, :, None], titles=[f"Occlusion: che 2×2 → P({label}) rơi"], max_cols=1, shared_scale=True))
     p3.pyplot(fig_feature_maps(sal[:, :, None], titles=[f"Saliency |∂logit {label} / ∂pixel|"], max_cols=1))
+    # map có số âm -> fig_feature_maps tự dùng colormap phân kỳ (đỏ – trắng – xanh)
+    occlusion_colors = (
+        "ô xanh = che đi thì mạng mất tự tin vào lớp đúng, ô đỏ = che đi lại tự tin hơn"
+        if occ.min() < 0
+        else "ô càng ngả cam = che đi thì mạng càng mất tự tin vào lớp đúng"
+    )
     st.caption(
-        "Occlusion: vùng đậm = thiếu nó thì mạng mất tự tin vào lớp đúng (số âm = che đi lại "
-        "tự tin hơn). Saliency: pixel nào chỉ cần nhích 1 chút là logit đổi nhiều. Hai cách hỏi "
-        "khác nhau nên không nhất thiết trùng. Mặc định chọn sẵn 1 ảnh bị đoán sai (nếu có)."
+        f"Occlusion: {occlusion_colors}. Saliency: pixel nào chỉ cần nhích 1 chút là logit đổi "
+        "nhiều. Hai cách hỏi khác nhau nên không nhất thiết trùng. Mặc định chọn sẵn 1 ảnh bị "
+        "đoán sai (nếu có)."
     )
 
     cm = confusion_matrix(y_val, pred_all)
@@ -182,4 +196,5 @@ with st.container(border=True):
             st.markdown("**Nhầm nhiều nhất**\n" + "\n".join(f"- {n} ảnh **{i}** bị đoán là **{j}**" for n, i, j in top))
         else:
             st.markdown("Không nhầm ảnh nào.")
-        st.caption("Đổi sang mô hình overfit ở trên để so: nó nhầm nhiều hơn hẳn — và nhầm ở những cặp nào.")
+        if choice == next(iter(MODELS)):
+            st.caption("Đổi sang mô hình overfit ở trên để so: nó nhầm nhiều hơn hẳn — và nhầm ở những cặp nào.")

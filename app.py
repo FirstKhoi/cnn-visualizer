@@ -26,7 +26,7 @@ st.markdown(
     <b>Phần 2 (trang 9–12)</b>: <code>cnn_core/layers.py</code> + <code>train.py</code> (numpy vectorized,
     viết sẵn, có backward) train 1 CNN thật trên ảnh chữ số 8×8 — để thấy BatchNorm, loss,
     backprop và overfit bằng số thật.<br>
-    <b>Phần 3 (trang 13–14)</b>: bản chất CNN — vì sao conv thắng Dense, mỗi neuron nhìn
+    <b>Phần 3 (trang 13–14)</b>: bản chất CNN — conv khác Dense ở đâu và hơn ở đâu, mỗi neuron nhìn
     vùng nào, và dữ liệu biến đổi ra sao qua từng lớp (<code>cnn_core/analysis.py</code>).
     </div>
     """,

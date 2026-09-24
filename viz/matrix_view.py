@@ -226,12 +226,15 @@ def fig_lines(
     ylabel: str = "",
     logy: bool = False,
     figsize: tuple[float, float] = (6, 3.4),
+    x_values: list[float] | None = None,
 ) -> plt.Figure:
     """Nhiều đường trên 1 trục, mỗi series 1 màu. xlabels (tuỳ chọn) đặt tên
-    cho từng điểm trên trục x (vd tên lớp) thay vì số 0, 1, 2..."""
+    cho từng điểm trên trục x (vd tên lớp) thay vì số 0, 1, 2... x_values (tuỳ
+    chọn) cho trục x dạng số thật (vd vị trí -38..37) — matplotlib tự chọn tick."""
     fig, ax = plt.subplots(figsize=figsize)
     for color, (name, values) in zip(cycle(RUN_COLORS), series.items()):
-        ax.plot(range(len(values)), values, marker="o", markersize=4, linewidth=2, color=color, label=name)
+        xs = x_values if x_values is not None else range(len(values))
+        ax.plot(xs, values, marker="o", markersize=4, linewidth=2, color=color, label=name)
     if xlabels is not None:
         ax.set_xticks(range(len(xlabels)))
         ax.set_xticklabels(xlabels, rotation=30, ha="right", fontsize=8)

@@ -49,3 +49,10 @@ def test_scatter_grid_draws_every_panel_with_class_colors():
     assert len(drawn) == 5
     assert all(len(ax.collections) == 3 for ax in drawn)  # 1 nhóm điểm mỗi lớp
     assert [t.get_text() for t in fig.legends[0].get_texts()] == ["0", "1", "2"]
+
+
+def test_fig_lines_accepts_numeric_x_values():
+    from viz.matrix_view import fig_lines
+
+    fig = fig_lines({"s": [1.0, 2.0, 3.0]}, x_values=[-1, 0, 1])
+    np.testing.assert_array_equal(fig.axes[0].lines[0].get_xdata(), [-1, 0, 1])
