@@ -47,3 +47,14 @@ def test_conv_block_forward_shape_multichannel():
     result = block.forward(input_rgb)
     # conv: (8-3)+1=6 -> (6,6,5); pool size2 stride2: (6-2)//2+1=3 -> (3,3,5)
     assert result.shape == (3, 3, 5)
+
+
+def test_conv_block_forward_steps_matches_forward():
+    rng = np.random.default_rng(1)
+    x = rng.normal(size=(8, 8, 3))
+    block = ConvBlock(kernels=make_random_kernels(4, 3, 3, seed=0))
+    steps = block.forward_steps(x)
+    assert [name for name, _ in steps] == ["conv", "relu", "pool"]
+    assert steps[0][1].shape == (6, 6, 4)
+    assert steps[1][1].min() >= 0
+    np.testing.assert_array_equal(steps[-1][1], block.forward(x))

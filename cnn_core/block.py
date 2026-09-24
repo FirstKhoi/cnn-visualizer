@@ -57,36 +57,37 @@ class ConvBlock:
         self.pool_size = pool_size
         self.pool_stride = pool_stride
 
+    def forward_steps(self, x: np.ndarray) -> list[tuple[str, np.ndarray]]:
+        """Giống forward() nhưng giữ lại kết quả SAU TỪNG BƯỚC, để trang Full
+        Pipeline đi qua được Conv -> ReLU -> Pool thay vì chỉ thấy kết quả cuối.
+
+        Returns:
+            [("conv", y1), ("relu", y2), ("pool", y3)] — y3 chính là forward(x).
+        """
+        conv = conv2d_multichannel(x, self.kernels, self.bias, stride=self.conv_stride, padding=self.conv_padding)
+        activated = relu(conv)
+        H1, W1, C_out = activated.shape
+        H_out = (H1 - self.pool_size) // self.pool_stride + 1
+        W_out = (W1 - self.pool_size) // self.pool_stride + 1
+
+        pooled = np.zeros((H_out, W_out, C_out), dtype=activated.dtype)
+
+        for c in range(C_out):
+            pooled[:, :, c] = max_pool2d(
+                activated[:, :, c],
+                size=self.pool_size,
+                stride=self.pool_stride
+            )
+
+        return [("conv", conv), ("relu", activated), ("pool", pooled)]
+
     def forward(self, x: np.ndarray) -> np.ndarray:
-        """Chạy x qua conv -> relu -> pool.
+        """Chạy x qua conv -> relu -> pool, trả về kết quả sau pool.
 
         Args:
             x: mảng 3D shape (H, W, C_in).
 
         Returns:
             Mảng 3D shape (H_out, W_out, C_out) sau cả 3 bước.
-
-        Hint:
-            1. y = conv2d_multichannel(x, self.kernels, self.bias, stride=self.conv_stride, padding=self.conv_padding)
-               -> shape (H1, W1, C_out)
-            2. y = relu(y)  (áp dụng trên cả mảng, element-wise là đủ)
-            3. max_pool2d chỉ nhận input 2D — áp dụng RIÊNG cho từng kênh
-               (vòng lặp qua C_out, pool từng lát y[:, :, c], rồi ghép lại
-               theo trục cuối) -> shape (H_out, W_out, C_out)
         """
-        y = conv2d_multichannel(x, self.kernels, self.bias, stride=self.conv_stride, padding=self.conv_padding)
-        y = relu(y)
-        H1, W1, C_out = y.shape
-        H_out = (H1 - self.pool_size) // self.pool_stride + 1
-        W_out = (W1 - self.pool_size) // self.pool_stride + 1
-        
-        output = np.zeros((H_out, W_out, C_out), dtype=y.dtype)
-        
-        for c in range(C_out):
-            output[:, :, c] = max_pool2d(
-                y[:, :, c],
-                size=self.pool_size,
-                stride=self.pool_stride
-            )
-            
-        return output
+        return self.forward_steps(x)[-1][1]

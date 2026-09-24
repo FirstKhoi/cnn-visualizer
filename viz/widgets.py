@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from cnn_core.layers import Layer
+from cnn_core.train import TrainConfig, train
 from viz.theme import PRIMARY, step_dots
 
 
@@ -61,3 +63,14 @@ def run_or_hint(fn: Callable, *args: Any, todo_hint: str, **kwargs: Any):
     except Exception as exc:
         st.error(f"Lỗi khi chạy `{fn.__name__}`: {exc}")
         st.stop()
+
+
+@st.cache_resource(show_spinner="Đang train mạng bằng numpy thuần…", max_entries=64)
+def cached_train(cfg: TrainConfig) -> tuple[list[Layer], dict[str, list]]:
+    """train(cfg) có cache theo config — đổi qua lại giữa các trang/tuỳ chọn
+    không phải train lại. Dùng chung cho trang 9–12.
+
+    Model trả về là object DÙNG CHUNG giữa các lần gọi: chỉ gọi forward với
+    train=False trên nó (không update running stats / không train tiếp).
+    """
+    return train(cfg)
