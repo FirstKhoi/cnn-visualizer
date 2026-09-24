@@ -35,3 +35,15 @@ def test_training_page_does_not_blame_small_learning_rate():
     assert not at.exception
     assert not at.error
     assert any("lr = 0.001 nhỏ" in w.value for w in at.warning)
+
+
+def test_generalization_page_preset_run_and_clear():
+    at = AppTest.from_file(str(ROOT / "pages" / "12_Generalization.py"), default_timeout=120).run()
+    at.selectbox(key="g_preset").set_value("2. + Dropout 0.5").run()
+    assert at.session_state["g_dropout"] == 0.5
+    at.button[0].click().run()
+    at.button[0].click().run()  # bấm lại cùng config -> không thêm trùng
+    assert len(at.session_state["g_runs"]) == 2
+    assert not at.exception
+    at.button[1].click().run()
+    assert at.info and not at.exception
