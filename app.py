@@ -14,16 +14,18 @@ inject_base_css()
 
 hero(
     title="CNN Visualizer",
-    subtitle="Tự tay viết từng phép toán của CNN — kernel, padding, stride, pooling — rồi xem nó chạy thật, từng bước một.",
+    subtitle="Tự tay viết từng phép toán của CNN — kernel, padding, stride, pooling — rồi train thật, xem BatchNorm, loss và overfit hoạt động ra sao.",
     badge="Học CNN bằng cách tự xây",
 )
 
 st.markdown(
     f"""
     <div style="color:{MUTED}; font-size:1.0rem; margin-bottom:1.4rem;">
-    Phần toán (<code>cnn_core/</code>) do <b>bạn</b> viết — app chỉ vẽ lại kết quả.
-    Đi đúng thứ tự 8 bước bên dưới, mỗi bước implement xong 1-2 hàm là mở khoá
-    ngay 1 trang trực quan. Chi tiết từng phase ở <code>TODO.md</code>.
+    <b>Phần 1 (trang 1–8)</b>: phần toán forward trong <code>cnn_core/</code> do <b>bạn</b> viết bằng
+    vòng lặp tay — mỗi bước implement xong 1-2 hàm là mở khoá 1 trang. Chi tiết ở <code>TODO.md</code>.<br>
+    <b>Phần 2 (trang 9–12)</b>: <code>cnn_core/layers.py</code> + <code>train.py</code> (numpy vectorized,
+    viết sẵn, có backward) train 1 CNN thật trên ảnh chữ số 8×8 — để thấy BatchNorm, loss,
+    backprop và overfit bằng số thật.
     </div>
     """,
     unsafe_allow_html=True,
@@ -88,6 +90,15 @@ except ImportError:
     ready[7] = False
 ready[8] = ready[7]  # Full pipeline dùng chung ConvBlock với trang 7
 
+try:
+    from cnn_core.train import TrainConfig, build_model, forward
+
+    ready[9] = _check(lambda: forward(build_model(TrainConfig()), np.zeros((1, 8, 8, 1))))
+except ImportError:
+    ready[9] = False
+for num in (10, 11, 12):  # trang 9–12 dùng chung layers.py + train.py
+    ready[num] = ready[9]
+
 PAGES = [
     (1, "pages/1_Kernel_va_Convolution.py", "Kernel & Convolution", "Trượt kernel qua input, nhân-cộng từng vị trí."),
     (2, "pages/2_Padding.py", "Padding", "Thêm viền quanh input trước khi convolve."),
@@ -97,9 +108,13 @@ PAGES = [
     (6, "pages/6_Activation.py", "Activation", "ReLU cắt số âm — lý do CNN học được pattern phi tuyến."),
     (7, "pages/7_Conv_Block.py", "Conv Block", "Ghép Conv → ReLU → Pool thành 1 khối, chạy trên ảnh nhiều kênh."),
     (8, "pages/8_Full_Pipeline.py", "Full Pipeline", "Xếp nhiều block, forward 1 ảnh thật qua toàn bộ chuỗi."),
+    (9, "pages/9_BatchNorm.py", "BatchNorm", "Chuẩn hoá từng kênh để tín hiệu không tắt/nổ qua độ sâu."),
+    (10, "pages/10_Softmax_Cross_Entropy.py", "Softmax + CE", "Logits → xác suất → loss: mạng sai đến mức nào."),
+    (11, "pages/11_Backprop_Training.py", "Backprop & Training", "Gradient chảy ngược, kernel random thành bộ dò nét."),
+    (12, "pages/12_Generalization.py", "Generalization", "Vì sao dropout, weight decay, augmentation kéo val lên."),
 ]
 
-st.markdown("### Hành trình 8 bước")
+st.markdown("### Hành trình 12 bước")
 
 cols = st.columns(4)
 for idx, (num, path, title, desc) in enumerate(PAGES):

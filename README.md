@@ -27,7 +27,7 @@ thuộc.
 
 ## Tính năng
 
-App gồm 8 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học:
+App gồm 12 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học. Trang 1–8 (phần 1) là forward pass với kernel random; trang 9–12 (phần 2) train thật 1 CNN nhỏ để thấy BatchNorm, loss, backprop và overfit:
 
 | # | Trang | Nội dung |
 |---|---|---|
@@ -37,15 +37,20 @@ App gồm 8 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo th�
 | 4 | Output Shape | Công thức `(W - K + 2P) / S + 1`, nhập tay để đối chiếu, thử bộ số làm phép chia không chia hết để thấy lỗi hợp lệ |
 | 5 | Pooling | So sánh trực quan max-pooling và average-pooling trên cùng 1 input |
 | 6 | Activation | ReLU cắt giá trị âm trên feature map; so sánh đường cong ReLU với Sigmoid |
-| 7 | Conv Block | Ghép Conv → ReLU → Pool thành 1 khối, chạy trên ảnh nhiều kênh (RGB), quan sát nhiều feature map ra từ nhiều kernel |
-| 8 | Full Pipeline | Xếp 2-3 Conv Block liên tiếp, forward 1 ảnh thật (upload hoặc ảnh tổng hợp) qua từng block một, theo dõi shape thu nhỏ dần |
+| 7 | Conv Block | Ghép Conv → ReLU → Pool thành 1 khối, chạy trên ảnh nhiều kênh (RGB), quan sát nhiều feature map ra từ nhiều kernel, histogram giá trị sau từng bước |
+| 8 | Full Pipeline | Xếp 2-3 Conv Block liên tiếp, forward 1 ảnh thật qua từng bước Conv / ReLU / Pool của từng block, theo dõi shape thu nhỏ dần và std activation co lại qua độ sâu |
+| 9 | BatchNorm | Tính μ, σ², x̂, γx̂+β bằng số trên 1 mini-batch; stack 10 lớp conv random có/không BN; train mode vs eval mode (running stats); BN giúp train nhanh hơn |
+| 10 | Softmax + Cross-Entropy | Kéo logits xem xác suất, loss `-log p` và gradient `p − y`; 1 ảnh chữ số đi hết mạng đã train tới tận loss |
+| 11 | Backprop & Training | Đường học, ảnh hưởng của learning rate, gradient norm từng lớp, kernel và feature map trước vs sau khi train |
+| 12 | Generalization | Overfit có chủ đích (ít data + nhãn sai), so sánh chồng dropout / weight decay / augmentation / BatchNorm / thêm data, early stopping, ảnh val bị đoán sai |
 
 ## Kiến trúc & nguyên tắc thiết kế
 
 Codebase tách bạch rõ phần **tự viết để học** và phần **hạ tầng UI có sẵn**:
 
 ```
-cnn_core/   toàn bộ phép toán CNN — tự cài đặt bằng vòng lặp NumPy thuần
+cnn_core/   toàn bộ phép toán CNN — phần 1 tự cài đặt bằng vòng lặp NumPy thuần,
+            phần 2 (layers.py, train.py) vectorized + có backward để train
 viz/        theme, helper vẽ matplotlib, widget Streamlit dùng chung
 pages/      1 file = 1 khái niệm, chỉ gọi vào cnn_core/ rồi vẽ kết quả
 tests/      giá trị kỳ vọng tính tay sẵn, dùng để tự chấm đúng/sai cnn_core/
@@ -64,6 +69,7 @@ không bị lật 180°) — đúng quy ước dùng trong deep learning, khác 
 | [Matplotlib](https://matplotlib.org/) | Vẽ heatmap ma trận, highlight vị trí kernel, lưới feature map |
 | [Pandas](https://pandas.pydata.org/) | Backend cho `st.data_editor` — bảng số cho phép sửa tay từng ô input/kernel |
 | [Pillow](https://python-pillow.org/) | Đọc và resize ảnh người dùng upload ở trang Full Pipeline |
+| [scikit-learn](https://scikit-learn.org/) | Chỉ để lấy dataset `load_digits` (1797 ảnh chữ số 8×8, có sẵn offline) cho trang 9–12 |
 | [pytest](https://pytest.org/) | Test suite với giá trị kỳ vọng tính tay, dùng để tự chấm đúng/sai khi cài đặt `cnn_core/` |
 
 ## Cài đặt
@@ -109,7 +115,9 @@ CNN_Visualizer/
 │   ├── shapes.py                  # conv_output_shape — công thức (W-K+2P)/S+1
 │   ├── pooling.py                 # max_pool2d, avg_pool2d
 │   ├── activation.py              # relu, sigmoid
-│   └── block.py                   # ConvBlock — Conv → ReLU → Pool, make_random_kernels
+│   ├── block.py                   # ConvBlock — Conv → ReLU → Pool, make_random_kernels
+│   ├── layers.py                  # Conv2D, BatchNorm2D, Dropout, Dense... có forward + backward (vectorized)
+│   └── train.py                   # dataset digits, build_model, SGD momentum + weight decay, train()
 ├── viz/
 │   ├── theme.py                   # bảng màu, hero header, card, step-progress dots
 │   ├── matrix_view.py             # heatmap ma trận, highlight cửa sổ, lưới feature map
@@ -171,16 +179,41 @@ element-wise trên toàn bộ feature map.
 `ConvBlock.forward` ghép 3 hàm trên theo đúng thứ tự chuẩn của 1 khối CNN cổ
 điển: `conv2d_multichannel → relu → max_pool2d` (áp dụng riêng từng kênh vì
 `max_pool2d` chỉ nhận input 2D). Kernel được sinh ngẫu nhiên
-(`make_random_kernels`, phân phối `N(0, 0.1)`) — project này không cài đặt
-backprop/training, mục tiêu chỉ là quan sát forward pass, tương đương nhìn
-một model ngay sau khi khởi tạo.
+(`make_random_kernels`, phân phối `N(0, 0.1)`) — phần 1 không train, mục tiêu
+chỉ là quan sát forward pass, tương đương nhìn một model ngay sau khi khởi
+tạo (training nằm ở phần 2). `forward_steps` trả về kết quả sau từng
+bước để trang Full Pipeline đi qua được Conv / ReLU / Pool riêng lẻ.
+
+### Layers có backward (`cnn_core/layers.py`)
+
+Phần 2 cần train, nên vòng lặp tay quá chậm. Mỗi lớp (`Conv2D`, `ReLU`,
+`MaxPool2D`, `BatchNorm2D`, `Dropout`, `Flatten`, `Dense`) có `forward(x,
+train)` và `backward(dout)`, nhận batch `(N, H, W, C)`. Conv và pool xếp mọi
+cửa sổ `k×k` ra 1 mảng (`_windows`, tương đương im2col) rồi tính bằng 1 phép
+matmul/max; backward cộng dồn gradient ngược về từng pixel gốc
+(`_windows_backward`). `BatchNorm2D` dùng thống kê của batch khi train và
+running stats khi eval. `softmax_cross_entropy_backward` trả về `(p − y)/N`.
+
+Mọi backward được kiểm bằng gradient check (sai phân trung tâm), `Conv2D`
+được đối chiếu với `conv2d_multichannel` vòng lặp tay, và (nếu có `torch`)
+với `torch.nn.functional.conv2d` / `batch_norm`.
+
+### Training (`cnn_core/train.py`)
+
+Dataset `load_digits` (8×8, 10 lớp), 500 ảnh val cố định. Mô hình:
+`Conv(16) → [BN] → ReLU → Pool → Conv(32) → [BN] → ReLU → Pool → Dense(128→64)
+→ ReLU → [Dropout] → Dense(64→10)` — cố ý dư sức chứa để overfit hiện rõ.
+SGD momentum 0.9, weight decay chỉ áp cho `W`. Tuỳ chọn `label_noise` gán lại
+nhãn ngẫu nhiên cho 1 phần ảnh train để mô phỏng dữ liệu bẩn. Train full data
+~1 giây, val acc ~99%.
 
 ## Kiểm thử
 
-20 test case trong `tests/`, giá trị kỳ vọng được tính tay trên các ma trận
-nhỏ (4×4, 2×2) trước khi viết test — không dùng bất kỳ hàm nào từ
-`cnn_core/` để sinh ra "đáp án", tránh trường hợp test tự khớp với chính lỗi
-của cài đặt.
+Test phần 1 dùng giá trị kỳ vọng tính tay trên các ma trận nhỏ (4×4, 2×2) —
+không dùng hàm nào từ `cnn_core/` để sinh ra "đáp án", tránh trường hợp test
+tự khớp với chính lỗi của cài đặt. Test phần 2 dùng gradient check số học và
+đối chiếu với bản vòng lặp tay / torch. `tests/test_pages.py` chạy thử mọi
+trang Streamlit bằng `AppTest`.
 
 ```bash
 pytest -v
@@ -188,13 +221,12 @@ pytest -v
 
 ## Trạng thái hoàn thành
 
-Toàn bộ 6 phase trong `TODO.md` đã hoàn tất — 20/20 test pass, cả 8 trang
-Streamlit chạy được từ input tuỳ chỉnh tới ảnh thật qua nhiều lớp Conv Block.
+Toàn bộ 6 phase trong `TODO.md` đã hoàn tất, cả 12 trang Streamlit chạy
+được — từ input tuỳ chỉnh, qua ảnh thật đi qua nhiều Conv Block, tới train
+thật và so sánh các kỹ thuật chống overfit.
 
 ## Định hướng mở rộng
 
-- So sánh output `conv2d` tự viết với `torch.nn.functional.conv2d` cùng
-  kernel — số phải khớp tuyệt đối (trong sai số dấu phẩy động)
 - Thêm preset kernel Sobel X/Y, Sharpen, Gaussian blur để xây trực giác
   "kernel = bộ dò 1 loại pattern"
 - Padding `mode="reflect"` bên cạnh zero-padding, so sánh viền ảnh
