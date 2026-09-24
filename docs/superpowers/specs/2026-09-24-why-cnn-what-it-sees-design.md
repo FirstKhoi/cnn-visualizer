@@ -79,6 +79,10 @@ mạng đã train 0.886 (pixel) → 0.926 → 0.982 → 0.988; mạng random 0.8
   jump *= stride`, bắt đầu `r = 1, jump = 1`.
 - `receptive_field_map(layers, x) -> ndarray (H, W)` — trung bình |∂ neuron
   giữa / ∂ input| qua batch và kênh (backward từ 1 vị trí trung tâm, mọi kênh).
+- `center_concentration(grad, r) -> (share, area, edge)` — trong hộp r×r:
+  phần ảnh hưởng ở hình vuông giữa cạnh ≈ r/2 so với diện tích của nó, và
+  gradient ở mép so với tâm. Để câu chữ về effective RF dựng từ số đo (đo
+  prototype: tỉ lệ share/area ≈ 1.0–1.6 ở 1 block, ≈ 2.1 ở 4 block).
 - `pca_2d(features) -> ndarray (N, 2)` — SVD trên dữ liệu đã trừ mean.
 - `nearest_centroid_accuracy(f_train, y_train, f_val, y_val) -> float`.
 - `occlusion_map(model, image, label, patch=2) -> ndarray` — với mỗi vị trí
@@ -111,14 +115,17 @@ mạng đã train 0.886 (pixel) → 0.926 → 0.982 → 0.988; mạng random 0.8
 
 ### 14. Mạng nhìn thấy gì? (`pages/14_Mang_nhin_thay_gi.py`)
 - (a) **Receptive field**: slider số block (1–4), kernel (3/5), bật/tắt pool.
-  Stack Conv→ReLU→[Pool] random trên input 96×96 (16 mẫu). Heatmap
-  `receptive_field_map` mỗi độ sâu + "lý thuyết r px · đo được r px"; profile
-  1D qua tâm (effective RF dạng Gauss, rìa đóng góp ít).
+  Stack Conv→ReLU→[Pool] random trên input 96×96 (32 mẫu). Heatmap
+  `receptive_field_map` mỗi độ sâu (cắt theo vùng của lớp sâu nhất) + "lý
+  thuyết r · đo r px"; profile 1D qua tâm; caption từ `center_concentration`
+  (dồn về giữa rõ khi share > 1.5 × area, ngược lại nói "còn khá đều").
 - (b) **Biểu diễn qua từng lớp**: PCA 2D của 500 ảnh val tại Input, Pool 1,
   Pool 2, Dense ẩn, logits — hàng trên mạng random, hàng dưới mạng đã train, tô
   màu theo nhãn. Đường nearest-centroid acc theo lớp cho cả hai.
-- (c) **Pixel nào quyết định**: chọn ảnh val → ảnh, occlusion map, saliency,
-  dự đoán; confusion matrix val (10×10) + các cặp nhầm nhiều nhất.
+- (c) **Pixel nào quyết định**: chọn mô hình (mặc định / overfit = preset 1
+  trang 12, dùng chung cache), chọn ảnh val (mặc định: ảnh sai đầu tiên) →
+  ảnh, occlusion map, saliency, dự đoán; confusion matrix val (10×10) + các
+  cặp nhầm nhiều nhất.
 
 ## Dọn nợ review
 
@@ -127,7 +134,8 @@ mạng đã train 0.886 (pixel) → 0.926 → 0.982 → 0.988; mạng random 0.8
 | ReLU race | như trên |
 | Colormap tuần tự với số âm (trang 8 conv, trang 10 BN) | `cmap=None` tự chọn |
 | Trang 12 "Chạy" config đã có không phản hồi | `st.toast` |
-| Trang 12 control reset khi rời trang | lưu bản sao không-phải-widget (`_g_*`), khôi phục khi quay lại |
+| Trang 12 control reset khi rời trang (đã tái hiện bằng `AppTest.switch_page`) | lưu bản sao không-phải-widget (`_g_*`), khôi phục khi quay lại |
+| Slider float 0.30000000000000004 làm hỏng check trùng | làm tròn 4 chữ số khi dựng `TrainConfig` |
 | Chữ: "0.09" (đúng 0.095), README "stack 10 lớp" (mặc định 6, tối đa 10), README "mọi backward" | sửa chữ; thêm gradient check cho `Flatten` và BN eval |
 | Test đủ 7 preset | test mọi control của từng preset |
 | Run nặng nhất trang 12 ~7 s > ~5 s | chấp nhận, ghi vào spec: hiếm, có spinner |
