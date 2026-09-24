@@ -93,3 +93,35 @@ def test_training_page_weight_change_copy_follows_the_measurement():
     captions = " ".join(c.value for c in at.caption)
     assert "gần như giống hệt" not in captions
     assert "na ná" not in captions
+
+
+def test_generalization_page_toasts_on_duplicate_run():
+    at = AppTest.from_file(str(ROOT / "pages" / "12_Generalization.py"), default_timeout=120).run()
+    at.button[0].click().run()  # preset 1 đã có sẵn từ lần mở đầu
+    assert any("đã có trong so sánh" in t.value for t in at.toast)
+    assert len(at.session_state["g_runs"]) == 1
+
+
+def test_generalization_page_keeps_controls_after_visiting_another_page():
+    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120).run()
+    at.switch_page("pages/12_Generalization.py").run()
+    at.selectbox(key="g_preset").set_value("2. + Dropout 0.5").run()
+    at.switch_page("pages/6_Activation.py").run()  # Streamlit dọn state widget trang 12
+    at.switch_page("pages/12_Generalization.py").run()
+    assert not at.exception
+    assert at.session_state["g_preset"] == "2. + Dropout 0.5"
+    assert at.session_state["g_dropout"] == 0.5
+
+
+def test_generalization_presets_set_every_control():
+    source = (ROOT / "pages" / "12_Generalization.py").read_text()
+    presets_src = source[source.index("OVERFIT = dict(") : source.index("def apply_preset")]
+    namespace = {"MAX_TRAIN_SIZE": 1297}
+    exec(presets_src, namespace)
+
+    at = AppTest.from_file(str(ROOT / "pages" / "12_Generalization.py"), default_timeout=120).run()
+    for name, values in namespace["PRESETS"].items():
+        at.selectbox(key="g_preset").set_value(name).run()
+        assert not at.exception
+        for key, value in values.items():
+            assert at.session_state[f"g_{key}"] == value, (name, key)

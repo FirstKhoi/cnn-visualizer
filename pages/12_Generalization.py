@@ -58,6 +58,13 @@ def run_label(cfg: TrainConfig) -> str:
     return " · ".join(parts)
 
 
+WIDGET_KEYS = ["g_preset"] + [f"g_{k}" for k in OVERFIT]
+
+# Streamlit xoá state của widget khi rời trang (widget không còn được vẽ). Bản
+# sao "_g_*" không phải widget nên còn nguyên -> dùng nó khôi phục khi quay lại.
+for key in WIDGET_KEYS:
+    if key not in st.session_state and f"_{key}" in st.session_state:
+        st.session_state[key] = st.session_state[f"_{key}"]
 if "g_train_size" not in st.session_state:
     st.session_state["g_preset"] = next(iter(PRESETS))
     apply_preset()
@@ -75,10 +82,18 @@ with st.container(border=True):
     c3.toggle("BatchNorm", key="g_use_bn")
     c3.slider("Số epoch", 10, 100, key="g_epochs", step=10)
 
-    cfg = TrainConfig(**{k: st.session_state[f"g_{k}"] for k in OVERFIT})
+    for key in WIDGET_KEYS:
+        st.session_state[f"_{key}"] = st.session_state[key]
+
+    # làm tròn: slider float có thể trả 0.30000000000000004 -> config "khác" 0.3
+    cfg = TrainConfig(
+        **{k: round(v, 4) if isinstance(v, float) else v for k, v in ((k, st.session_state[f"g_{k}"]) for k in OVERFIT)}
+    )
     b1, b2, _ = st.columns([1, 1, 3])
     if b1.button("Chạy & thêm vào so sánh", type="primary", use_container_width=True):
-        if cfg not in st.session_state["g_runs"]:
+        if cfg in st.session_state["g_runs"]:
+            st.toast("Config này đã có trong so sánh — đổi ít nhất 1 tuỳ chọn rồi chạy lại.")
+        else:
             st.session_state["g_runs"].append(cfg)
     if b2.button("Xoá hết", use_container_width=True):
         st.session_state["g_runs"] = []
