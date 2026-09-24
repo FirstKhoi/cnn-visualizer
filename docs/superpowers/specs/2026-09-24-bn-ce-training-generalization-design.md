@@ -42,13 +42,17 @@ Mọi lớp nhận batch NHWC (hoặc `(N, D)` với Dense), có `forward(x, tra
 
 ### `cnn_core/train.py` (mới)
 
-- `load_digits_split(train_size, seed)` → `(x_train, y_train, x_val, y_val)`,
-  ảnh shape `(N, 8, 8, 1)` chuẩn hoá về [0, 1]; val cố định 500 ảnh.
-- `TrainConfig` (dataclass): `use_bn`, `dropout`, `weight_decay`, `augment`,
-  `train_size`, `epochs`, `lr`, `batch_size`, `seed`.
+- `load_digits_split(train_size, label_noise=0.0)` → `(x_train, y_train,
+  x_val, y_val)`, ảnh shape `(N, 8, 8, 1)` chuẩn hoá về [0, 1]; val cố định
+  500 ảnh (luôn sạch); `label_noise` gán lại nhãn ngẫu nhiên cho 1 tỉ lệ ảnh
+  train. Train tối đa 1297 ảnh.
+- `TrainConfig` (frozen dataclass): `use_bn=True`, `dropout=0.0`,
+  `weight_decay=0.0`, `augment=False`, `label_noise=0.0`, `train_size=1297`,
+  `epochs=15`, `lr=0.01`, `batch_size=32`, `seed=0`.
 - `build_model(cfg)` → list lớp:
-  `Conv3×3(8,pad1) → [BN] → ReLU → Pool2 → Conv3×3(16,pad1) → [BN] → ReLU →
-  Pool2 → Flatten → [Dropout] → Dense(64→10)`.
+  `Conv3×3(16,pad1) → [BN] → ReLU → Pool2 → Conv3×3(32,pad1) → [BN] → ReLU →
+  Pool2 → Flatten → Dense(128→64) → ReLU → [Dropout] → Dense(64→10)`.
+  Cố ý dư sức chứa để overfit hiện rõ.
 - `augment_shift(x, rng)` — dịch ngẫu nhiên ±1 px mỗi ảnh (pad 0).
 - SGD momentum 0.9 + weight decay (L2 cộng vào grad, không áp cho BN/bias).
 - `train(cfg)` → `(model, history)`; history theo epoch gồm
@@ -64,7 +68,11 @@ Thêm `ConvBlock.forward_steps(x)` → `[("conv", y1), ("relu", y2), ("pool", y3
 ### `viz/matrix_view.py`
 
 - `fig_feature_maps(..., shared_scale=False)` — `True` thì mọi map dùng chung
-  vmin/vmax + 1 colorbar.
+  vmin/vmax + 1 colorbar (đối xứng quanh 0 nếu có số âm).
+- `fig_lines(series, xlabels, ...)` — nhiều đường trên 1 trục (std theo lớp,
+  gradient norm theo epoch...).
+- `fig_bars(values, labels, highlight, ...)` — bar chart logits / xác suất /
+  gradient.
 - `fig_activation_hist(named_arrays)` — histogram chồng/lưới theo lớp, ghi
   std và % zero.
 - `fig_curves(runs, metric)` — vẽ train (nét đứt) vs val (nét liền) cho nhiều
@@ -85,7 +93,11 @@ Thêm `ConvBlock.forward_steps(x)` → `[("conv", y1), ("relu", y2), ("pool", y3
 - (b) Stack 6 `Conv2D` random + ReLU trên batch digits, có/không BN: histogram
   từng lớp + đường std theo độ sâu.
 - (c) Train vs eval: slider batch size → μ của batch dao động quanh running
-  mean (vẽ nhiều batch), giải thích vì sao eval dùng running stats.
+  mean (vẽ nhiều batch), giải thích vì sao eval dùng running stats; metric:
+  cùng 1 ảnh trong 2 batch khác nhau cho output khác nhau ở train mode, giống
+  hệt ở eval mode.
+- (d) Train thật có/không BN (cache): BN giúp val acc lên nhanh hơn ở các
+  epoch đầu.
 
 ### 10. Softmax + Cross-Entropy
 - (a) Slider logits (10 lớp hoặc ít hơn), chọn lớp đúng → bar softmax, loss
@@ -103,15 +115,22 @@ Thêm `ConvBlock.forward_steps(x)` → `[("conv", y1), ("relu", y2), ("pool", y3
 - Controls: train size, augmentation, dropout, weight decay, BN, epochs.
 - Nút "Chạy" → thêm run vào `st.session_state`; vẽ chồng mọi run (train nét
   đứt, val nét liền), bảng tóm tắt gap cuối = train acc − val acc; nút xoá.
-- Preset gợi ý: "Overfit (100 ảnh, không gì)" rồi lần lượt +aug, +dropout,
-  +weight decay, +BN, +data.
+- Preset: "Overfit: 300 ảnh, 30% nhãn sai" rồi lần lượt +dropout, +weight
+  decay, +aug, +BN, +data (1297 ảnh), data sạch. Lần đầu mở trang tự chạy
+  preset 1. Nhãn sai là cách duy nhất làm overfit hiện rõ trên digits (không
+  có nhiễu, 100 ảnh train vẫn đạt val ~0.90 và các kỹ thuật chỉ hơn ~1%).
 - Callout giải thích từng kỹ thuật: aug = thêm dữ liệu hiệu dụng; dropout =
   nhiễu/ensemble; weight decay = trọng số nhỏ → hàm mượt; BN = tối ưu dễ hơn +
   nhiễu nhẹ; thêm data = cách chắc chắn nhất.
 - Lưới ảnh val bị đoán sai của run mới nhất.
 
-Train cache bằng `st.cache_data` theo config (trả về history + trọng số dạng
-mảng để hash được).
+Train cache bằng `st.cache_resource` theo config (`TrainConfig` frozen, hash
+được) qua `viz/widgets.py::cached_train`, dùng chung trang 9–12.
+
+Kết quả đo ở prototype (3 seed): full data val acc ~0.99 trong ~1 giây; preset
+overfit (300 ảnh, 30% nhãn sai, không BN, 60 epoch) train acc 0.98, val đỉnh
+0.87 rồi rơi còn 0.78; dropout 0.5 → val cuối ~0.86, weight decay 0.02 →
+~0.84, aug → ~0.83; BN không cải thiện val (trang 12 nói rõ điều này).
 
 ## Test
 
@@ -123,6 +142,8 @@ mảng để hash được).
 - `tests/test_train.py`: train cấu hình mặc định vài epoch → val acc > 0.9;
   `forward_trace` trả đủ lớp với shape đúng.
 - `tests/test_block.py`: `forward_steps` khớp `forward`.
+- `tests/test_pages.py`: mọi trang render không exception (Streamlit
+  `AppTest`).
 
 ## Ngoài phạm vi
 
