@@ -4,7 +4,7 @@ import streamlit as st
 
 from cnn_core.layers import cross_entropy, softmax, softmax_cross_entropy_backward
 from cnn_core.train import TrainConfig, forward_trace, load_digits_split
-from viz.matrix_view import DIV, fig_bars, fig_feature_maps
+from viz.matrix_view import fig_bars, fig_feature_maps
 from viz.theme import ACCENT, BORDER, PAGE_COLORS, TEXT, callout, formula_box, hero, inject_base_css
 from viz.widgets import cached_train, step_controls
 
@@ -72,7 +72,7 @@ with st.container(border=True):
     with c_text:
         st.markdown(
             "- Đường cong **dốc đứng khi p → 0**: đoán sai mà còn tự tin bị phạt cực nặng "
-            "(p = 0.01 → loss 4.6), trong khi từ 0.9 lên 0.99 chỉ bớt được 0.09.\n"
+            "(p = 0.01 → loss 4.6), trong khi từ 0.9 lên 0.99 chỉ bớt được 0.095.\n"
             "- Gradient **p − y** gọn đến bất ngờ: logit lớp đúng bị đẩy *lên* một lượng "
             "(1 − p), mọi logit khác bị đẩy *xuống* đúng bằng xác suất của nó.\n"
             "- Cộng cùng 1 số vào mọi logit → softmax không đổi. Chỉ **chênh lệch** giữa "
@@ -105,7 +105,7 @@ with st.container(border=True):
         ax.axis("off")
         st.pyplot(fig)
     elif out.ndim == 4:
-        st.pyplot(fig_feature_maps(out[0], max_cols=8, shared_scale=True, cmap=DIV if name == "Conv2D" else "magma"))
+        st.pyplot(fig_feature_maps(out[0], max_cols=8, shared_scale=True))
     elif name == "Cross-Entropy":
         formula_box(f"L = −log p{label} = −log({probs[0, label]:.4f}) = {loss:.4f}", color=COLOR)
     elif name == "Softmax":

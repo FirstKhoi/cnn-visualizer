@@ -35,6 +35,8 @@ PAGE_COLORS = {
     10: "#0984E3",  # Softmax + Cross-Entropy — xanh đậm
     11: "#E84393",  # Backprop & Training — hồng đậm
     12: "#8E44AD",  # Generalization — tím đậm
+    13: "#16A085",  # Vì sao là CNN — xanh lục đậm
+    14: "#D35400",  # Mạng nhìn thấy gì — cam cháy
 }
 
 

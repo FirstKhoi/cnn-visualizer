@@ -148,7 +148,7 @@ def fig_feature_maps(
     feature_maps: np.ndarray,
     titles: list[str] | None = None,
     max_cols: int = 4,
-    cmap=WARM,
+    cmap=None,
     shared_scale: bool = False,
 ) -> plt.Figure:
     """Vẽ lưới các feature map từ 1 tensor shape (H, W, C) — mỗi kênh 1 ô.
@@ -161,8 +161,12 @@ def fig_feature_maps(
     shared_scale=True: mọi map chung 1 thang màu + 1 colorbar -> so được độ
         lớn giữa các kênh (thấy kênh nào "chết", kênh nào trội). Nếu có số
         âm, thang đối xứng quanh 0.
+    cmap=None: tự chọn DIV (phân kỳ, 0 = trắng) nếu dữ liệu có số âm, WARM
+        nếu không — để giá trị 0 không rơi vào giữa 1 colormap tuần tự.
     """
     feature_maps = np.asarray(feature_maps)
+    if cmap is None:
+        cmap = DIV if feature_maps.min() < 0 else WARM
     channels = feature_maps.shape[-1]
     cols = min(max_cols, channels)
     rows = int(np.ceil(channels / cols))
@@ -297,4 +301,39 @@ def fig_bars(
     if title:
         ax.set_title(title, fontsize=10)
     fig.tight_layout()
+    return fig
+
+
+CLASS_COLORS = plt.get_cmap("tab10").colors  # 10 màu phân biệt cho 10 chữ số
+
+
+def fig_scatter_grid(
+    panels: list[np.ndarray],
+    labels: np.ndarray,
+    titles: list[str],
+    rows: int = 1,
+    point_size: float = 6,
+) -> plt.Figure:
+    """Lưới scatter 2D (vd PCA của từng lớp), mỗi điểm tô màu theo nhãn lớp.
+
+    panels: list mảng (N, 2), cùng thứ tự điểm với `labels`. Có 1 legend chung.
+    """
+    cols = int(np.ceil(len(panels) / rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(2.6 * cols, 2.6 * rows), squeeze=False)
+    axes = axes.ravel()
+    classes = np.unique(labels)
+    for ax, points, title in zip(axes, panels, titles):
+        for c in classes:
+            sel = labels == c
+            ax.scatter(points[sel, 0], points[sel, 1], s=point_size, color=CLASS_COLORS[int(c) % 10], alpha=0.75, linewidths=0)
+        ax.set_title(title, fontsize=9)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_color(BORDER)
+    for ax in axes[len(panels) :]:
+        ax.axis("off")
+    handles = [plt.Line2D([], [], marker="o", linestyle="", color=CLASS_COLORS[int(c) % 10], label=str(c)) for c in classes]
+    fig.legend(handles=handles, loc="lower center", ncol=len(classes), frameon=False, fontsize=8)
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
     return fig
