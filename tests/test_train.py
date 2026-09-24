@@ -81,3 +81,29 @@ def test_label_noise_rate_is_the_fraction_of_wrong_labels():
 def test_load_digits_split_rejects_bad_label_noise(bad):
     with pytest.raises(ValueError):
         load_digits_split(100, label_noise=bad)
+
+
+def test_mlp_arch_builds_and_learns():
+    from cnn_core.train import count_params
+
+    cnn, mlp = build_model(TrainConfig(use_bn=False)), build_model(TrainConfig(arch="mlp", use_bn=False))
+    assert count_params(cnn) == 13706
+    assert count_params(mlp) == 24090  # MLP được cho NHIỀU tham số hơn CNN
+    assert param_layer_names(mlp) == ["Dense 1", "Dense 2", "Dense 3"]
+    _, history = train(TrainConfig(arch="mlp", epochs=3))
+    assert history["val_acc"][-1] > 0.9
+
+
+def test_unknown_arch_is_rejected():
+    with pytest.raises(ValueError):
+        build_model(TrainConfig(arch="resnet"))
+
+
+def test_shift_images_moves_every_image_by_exact_offset():
+    from cnn_core.train import shift_images
+
+    x = np.arange(32.0).reshape(2, 4, 4, 1)
+    out = shift_images(x, 1, -1)
+    np.testing.assert_array_equal(out[:, 1:, :3], x[:, :3, 1:])
+    assert np.all(out[:, 0] == 0) and np.all(out[:, :, 3] == 0)
+    np.testing.assert_array_equal(shift_images(x, 0, 0), x)

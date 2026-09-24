@@ -33,6 +33,7 @@ MAX_TRAIN_SIZE = 1797 - VAL_SIZE
 
 @dataclass(frozen=True)
 class TrainConfig:
+    arch: str = "cnn"  # "cnn" | "mlp" (trang 13 so sánh)
     use_bn: bool = True
     dropout: float = 0.0
     weight_decay: float = 0.0
@@ -82,7 +83,15 @@ def build_model(cfg: TrainConfig) -> list[Layer]:
     Shape: 8×8×1 -> 4×4×16 -> 2×2×32 -> 128 -> 64 -> 10.
 
     Cố ý dư sức chứa (~15k tham số cho vài trăm ảnh) để overfit hiện rõ ở trang 12.
+
+    arch="mlp": Flatten -> Dense(64 -> 160) -> [BN] -> ReLU -> Dense(160 -> 80) -> [BN]
+    -> ReLU -> [Dropout] -> Dense(80 -> 10) — ~24k tham số, NHIỀU hơn CNN, không
+    có locality hay weight sharing.
     """
+    if cfg.arch == "mlp":
+        return _build_mlp(cfg)
+    if cfg.arch != "cnn":
+        raise ValueError(f"arch phải là 'cnn' hoặc 'mlp', nhận {cfg.arch!r}")
     rng = np.random.default_rng(cfg.seed)
     model: list[Layer] = [Conv2D(1, 16, 3, padding=1, rng=rng)]
     if cfg.use_bn:
@@ -95,6 +104,26 @@ def build_model(cfg: TrainConfig) -> list[Layer]:
         model.append(Dropout(cfg.dropout, rng=rng))
     model.append(Dense(64, 10, rng=rng))
     return model
+
+
+def _build_mlp(cfg: TrainConfig) -> list[Layer]:
+    rng = np.random.default_rng(cfg.seed)
+    model: list[Layer] = [Flatten(), Dense(8 * 8, 160, rng=rng)]
+    if cfg.use_bn:
+        model.append(BatchNorm2D(160))
+    model += [ReLU(), Dense(160, 80, rng=rng)]
+    if cfg.use_bn:
+        model.append(BatchNorm2D(80))
+    model.append(ReLU())
+    if cfg.dropout > 0:
+        model.append(Dropout(cfg.dropout, rng=rng))
+    model.append(Dense(80, 10, rng=rng))
+    return model
+
+
+def count_params(model: list[Layer]) -> int:
+    """Tổng số tham số học được (W, b, gamma, beta) của mọi lớp."""
+    return sum(p.size for layer in model for p in layer.params.values())
 
 
 def forward(model: list[Layer], x: np.ndarray, train: bool = False) -> np.ndarray:
@@ -129,6 +158,17 @@ def augment_shift(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     padded = np.pad(x, ((0, 0), (1, 1), (1, 1), (0, 0)))
     dy, dx = rng.integers(0, 3, N), rng.integers(0, 3, N)
     return np.stack([padded[n, dy[n] : dy[n] + H, dx[n] : dx[n] + W] for n in range(N)])
+
+
+def shift_images(x: np.ndarray, dy: int, dx: int) -> np.ndarray:
+    """Dịch CẢ batch (N, H, W, C) đúng dy pixel xuống, dx pixel sang phải (số âm =
+    lên/trái). Phần lộ ra điền 0, phần trượt ra ngoài bị cắt."""
+    _, H, W, _ = x.shape
+    out = np.zeros_like(x)
+    out[:, max(dy, 0) : H + min(dy, 0), max(dx, 0) : W + min(dx, 0)] = x[
+        :, max(-dy, 0) : H + min(-dy, 0), max(-dx, 0) : W + min(-dx, 0)
+    ]
+    return out
 
 
 def param_layer_names(model: list[Layer]) -> list[str]:
