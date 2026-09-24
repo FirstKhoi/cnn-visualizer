@@ -81,6 +81,7 @@ st.pyplot(
         xlabel="epoch",
         ylabel="‖∂L/∂W‖ trung bình (log)",
         logy=True,
+        figsize=(9, 3.2),
     )
 )
 st.caption(

@@ -118,6 +118,7 @@ with st.container(border=True):
             xlabels=names,
             ylabel="std activation (log)",
             logy=True,
+            figsize=(9, 3.2),
         )
     )
     tab_off, tab_on = st.tabs(["Histogram — không BN", "Histogram — có BN"])
@@ -156,6 +157,7 @@ with st.container(border=True):
             {"μ của từng batch": batch_means, "running mean": running, "mean toàn bộ data": [population_mean] * 60},
             xlabel="batch thứ",
             ylabel="mean kênh 0",
+            figsize=(9, 3.2),
         )
     )
     st.caption(

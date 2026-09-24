@@ -66,15 +66,15 @@ def fig_matrix(
         im = ax.imshow(matrix, cmap=cmap)
 
     if annotate and h * w <= 400:
-        vmin, vmax = float(np.min(matrix)), float(np.max(matrix))
-        mid = (vmin + vmax) / 2 if vmax != vmin else vmin
         for i in range(h):
             for j in range(w):
                 if mask is not None and not mask[i, j]:
                     ax.text(j, i, "?", ha="center", va="center", color=MUTED, fontsize=11, fontweight="bold")
                     continue
                 value = matrix[i, j]
-                color = "white" if value > mid else TEXT
+                # chọn màu chữ theo độ sáng thật của ô (đúng cả với colormap phân kỳ)
+                r, g, b, _ = im.cmap(im.norm(value))
+                color = "white" if 0.299 * r + 0.587 * g + 0.114 * b < 0.65 else TEXT
                 ax.text(j, i, f"{value:.2g}", ha="center", va="center", color=color, fontsize=9, fontweight="medium")
     ax.set_xticks(range(w))
     ax.set_yticks(range(h))
