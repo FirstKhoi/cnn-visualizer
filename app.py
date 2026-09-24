@@ -25,7 +25,9 @@ st.markdown(
     vòng lặp tay — mỗi bước implement xong 1-2 hàm là mở khoá 1 trang. Chi tiết ở <code>TODO.md</code>.<br>
     <b>Phần 2 (trang 9–12)</b>: <code>cnn_core/layers.py</code> + <code>train.py</code> (numpy vectorized,
     viết sẵn, có backward) train 1 CNN thật trên ảnh chữ số 8×8 — để thấy BatchNorm, loss,
-    backprop và overfit bằng số thật.
+    backprop và overfit bằng số thật.<br>
+    <b>Phần 3 (trang 13–14)</b>: bản chất CNN — vì sao conv thắng Dense, mỗi neuron nhìn
+    vùng nào, và dữ liệu biến đổi ra sao qua từng lớp (<code>cnn_core/analysis.py</code>).
     </div>
     """,
     unsafe_allow_html=True,
@@ -99,6 +101,14 @@ except ImportError:
 for num in (10, 11, 12):  # trang 9–12 dùng chung layers.py + train.py
     ready[num] = ready[9]
 
+try:
+    from cnn_core.analysis import receptive_field
+
+    ready[13] = ready[9] and _check(build_model, TrainConfig(arch="mlp"))
+    ready[14] = ready[9] and _check(receptive_field, [(3, 1), (2, 2)])
+except ImportError:
+    ready[13] = ready[14] = False
+
 PAGES = [
     (1, "pages/1_Kernel_va_Convolution.py", "Kernel & Convolution", "Trượt kernel qua input, nhân-cộng từng vị trí."),
     (2, "pages/2_Padding.py", "Padding", "Thêm viền quanh input trước khi convolve."),
@@ -112,9 +122,11 @@ PAGES = [
     (10, "pages/10_Softmax_Cross_Entropy.py", "Softmax + CE", "Logits → xác suất → loss: mạng sai đến mức nào."),
     (11, "pages/11_Backprop_Training.py", "Backprop & Training", "Gradient chảy ngược, đo xem mỗi lớp thật sự học được bao nhiêu."),
     (12, "pages/12_Generalization.py", "Generalization", "Vì sao dropout, weight decay, augmentation kéo val lên."),
+    (13, "pages/13_Vi_sao_CNN.py", "Vì sao là CNN?", "Locality, weight sharing, equivariance — so thẳng với MLP."),
+    (14, "pages/14_Mang_nhin_thay_gi.py", "Mạng nhìn thấy gì?", "Receptive field, dữ liệu qua từng lớp, pixel nào quyết định."),
 ]
 
-st.markdown("### Hành trình 12 bước")
+st.markdown("### Hành trình 14 bước")
 
 cols = st.columns(4)
 for idx, (num, path, title, desc) in enumerate(PAGES):

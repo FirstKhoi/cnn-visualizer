@@ -108,6 +108,9 @@ CNN — pooling/block/pipeline chỉ là lắp ráp lại đúng 2 khối này.
       (`tests/test_layers.py::test_conv_and_batchnorm_match_torch`)
 - [x] Phần 2: BatchNorm, Softmax + Cross-Entropy, Backprop & Training,
       Generalization (trang 9–12, `cnn_core/layers.py` + `train.py`)
+- [x] Phần 3: Vì sao là CNN (so với MLP), Mạng nhìn thấy gì (receptive
+      field, biểu diễn qua từng lớp, occlusion/saliency) — trang 13–14,
+      `cnn_core/analysis.py`
 - [ ] Thêm preset kernel Sobel X/Y, Sharpen, Gaussian blur ở trang 1 để xây
       trực giác "kernel = bộ dò 1 loại pattern"
 - [ ] Padding `mode="reflect"` bên cạnh zero-padding, so sánh viền ảnh

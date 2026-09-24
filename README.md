@@ -27,7 +27,7 @@ thuộc.
 
 ## Tính năng
 
-App gồm 12 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học. Trang 1–8 (phần 1) là forward pass với kernel random; trang 9–12 (phần 2) train thật 1 CNN nhỏ để thấy BatchNorm, loss, backprop và overfit:
+App gồm 14 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo thứ tự nên học. Trang 1–8 (phần 1) là forward pass với kernel random; trang 9–12 (phần 2) train thật 1 CNN nhỏ để thấy BatchNorm, loss, backprop và overfit; trang 13–14 (phần 3) đi vào bản chất: vì sao conv thắng Dense và mạng thật sự nhìn thấy gì:
 
 | # | Trang | Nội dung |
 |---|---|---|
@@ -39,10 +39,12 @@ App gồm 12 trang, mỗi trang tương ứng đúng 1 khái niệm, đi theo th
 | 6 | Activation | ReLU cắt giá trị âm trên feature map; so sánh đường cong ReLU với Sigmoid |
 | 7 | Conv Block | Ghép Conv → ReLU → Pool thành 1 khối, chạy trên ảnh nhiều kênh (RGB), quan sát nhiều feature map ra từ nhiều kernel, histogram giá trị sau từng bước |
 | 8 | Full Pipeline | Xếp 2-3 Conv Block liên tiếp, forward 1 ảnh thật qua từng bước Conv / ReLU / Pool của từng block, theo dõi shape thu nhỏ dần và std activation co lại qua độ sâu |
-| 9 | BatchNorm | Tính μ, σ², x̂, γx̂+β bằng số trên 1 mini-batch; stack 10 lớp conv random có/không BN; train mode vs eval mode (running stats); BN giúp train nhanh hơn |
+| 9 | BatchNorm | Tính μ, σ², x̂, γx̂+β bằng số trên 1 mini-batch; stack tới 10 lớp conv random có/không BN; train mode vs eval mode (running stats); BN giúp train nhanh hơn |
 | 10 | Softmax + Cross-Entropy | Kéo logits xem xác suất, loss `-log p` và gradient `p − y`; 1 ảnh chữ số đi hết mạng đã train tới tận loss |
 | 11 | Backprop & Training | Đường học, ảnh hưởng của learning rate, gradient norm từng lớp, kernel và feature map trước vs sau khi train |
 | 12 | Generalization | Overfit có chủ đích (ít data + nhãn sai), so sánh chồng dropout / weight decay / augmentation / BatchNorm / thêm data, early stopping, ảnh val bị đoán sai |
+| 13 | Vì sao là CNN? | Đếm tham số conv vs Dense cùng shape; equivariance (dịch ảnh → feature map dịch theo, max pool chỉ bất biến một phần); train CNN vs MLP nhiều tham số hơn trên cùng data, đo trên ảnh gốc và ảnh dịch 1px |
+| 14 | Mạng nhìn thấy gì? | Receptive field lý thuyết vs đo bằng gradient, effective RF dồn về giữa; PCA của cả tập val qua từng lớp (mạng đã train vs random); occlusion, saliency, confusion matrix |
 
 ## Kiến trúc & nguyên tắc thiết kế
 
@@ -117,7 +119,8 @@ CNN_Visualizer/
 │   ├── activation.py              # relu, sigmoid
 │   ├── block.py                   # ConvBlock — Conv → ReLU → Pool, make_random_kernels
 │   ├── layers.py                  # Conv2D, BatchNorm2D, Dropout, Dense... có forward + backward (vectorized)
-│   └── train.py                   # dataset digits, build_model, SGD momentum + weight decay, train()
+│   ├── train.py                   # dataset digits, build_model (cnn | mlp), SGD momentum + weight decay, train()
+│   └── analysis.py                # receptive field, PCA, nearest-centroid, occlusion, saliency, confusion matrix
 ├── viz/
 │   ├── theme.py                   # bảng màu, hero header, card, step-progress dots
 │   ├── matrix_view.py             # heatmap ma trận, highlight cửa sổ, lưới feature map
@@ -194,7 +197,8 @@ matmul/max; backward cộng dồn gradient ngược về từng pixel gốc
 (`_windows_backward`). `BatchNorm2D` dùng thống kê của batch khi train và
 running stats khi eval. `softmax_cross_entropy_backward` trả về `(p − y)/N`.
 
-Mọi backward được kiểm bằng gradient check (sai phân trung tâm), `Conv2D`
+Mọi backward (trừ `Dropout`, kiểm bằng test hành vi) được kiểm bằng gradient
+check (sai phân trung tâm) — `BatchNorm2D` ở cả train mode lẫn eval mode. `Conv2D`
 được đối chiếu với `conv2d_multichannel` vòng lặp tay, và (nếu có `torch`)
 với `torch.nn.functional.conv2d` / `batch_norm`.
 
@@ -205,7 +209,17 @@ Dataset `load_digits` (8×8, 10 lớp), 500 ảnh val cố định. Mô hình:
 → ReLU → [Dropout] → Dense(64→10)` — cố ý dư sức chứa để overfit hiện rõ.
 SGD momentum 0.9, weight decay chỉ áp cho `W`. Tuỳ chọn `label_noise` đổi 1 tỉ lệ
 ảnh train sang nhãn sai ngẫu nhiên để mô phỏng dữ liệu bẩn. Train full data
-~1 giây, val acc ~99%.
+~1 giây, val acc ~99%. `arch="mlp"` dựng MLP 24k tham số (nhiều hơn CNN) để
+so sánh ở trang 13.
+
+### Phân tích mô hình (`cnn_core/analysis.py`)
+
+`receptive_field` tính vùng nhìn lý thuyết (`r ← r + (k − 1)·jump`,
+`jump ← jump·stride`); `receptive_field_map` đo nó bằng gradient của 1 neuron
+giữa về input. `pca_2d` + `nearest_centroid_accuracy` đo các lớp chữ số tách
+nhau thế nào ở từng lớp. `occlusion_map` (che từng ô, xem xác suất rơi) và
+`saliency_map` (|∂logit/∂pixel|, chạy trên bản sao model để không đụng model
+đang cache) chỉ ra pixel nào quyết định dự đoán.
 
 ## Kiểm thử
 
@@ -221,9 +235,9 @@ pytest -v
 
 ## Trạng thái hoàn thành
 
-Toàn bộ 6 phase trong `TODO.md` đã hoàn tất, cả 12 trang Streamlit chạy
+Toàn bộ 6 phase trong `TODO.md` đã hoàn tất, cả 14 trang Streamlit chạy
 được — từ input tuỳ chỉnh, qua ảnh thật đi qua nhiều Conv Block, tới train
-thật và so sánh các kỹ thuật chống overfit.
+thật, so sánh các kỹ thuật chống overfit, và soi xem mạng nhìn thấy gì.
 
 ## Định hướng mở rộng
 
