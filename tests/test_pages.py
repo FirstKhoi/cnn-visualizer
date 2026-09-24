@@ -24,3 +24,14 @@ def test_training_page_flags_too_large_learning_rate():
 
     at.select_slider[0].set_value(0.01).run()
     assert not at.error
+
+
+def test_training_page_does_not_blame_small_learning_rate():
+    """lr nhỏ + ít epoch cũng chưa học được, nhưng lý do là chậm, không phải 'lr quá lớn'."""
+    at = AppTest.from_file(str(ROOT / "pages" / "11_Backprop_Training.py"), default_timeout=120).run()
+    at.slider[0].set_value(1).run()
+    at.toggle[0].set_value(False).run()
+    at.select_slider[0].set_value(0.001).run()
+    assert not at.exception
+    assert not at.error
+    assert any("lr = 0.001 nhỏ" in w.value for w in at.warning)

@@ -51,7 +51,13 @@ model, history = cached_train(cfg)
 
 final_loss = history["train_loss"][-1]
 # ln(10) ≈ 2.30 = loss của việc đoán đều 10 lớp — kẹt quanh đó nghĩa là mạng không học được gì
-if not np.isfinite(final_loss) or final_loss > 0.9 * np.log(10):
+stuck = not np.isfinite(final_loss) or final_loss > 0.9 * np.log(10)
+if stuck and lr < 0.1:
+    st.warning(
+        f"Chưa học được gì đáng kể sau {epochs} epoch (train loss {final_loss:.2f} ≈ ln 10) — "
+        f"lr = {lr} nhỏ nên mỗi bước đi rất ngắn. Tăng số epoch hoặc lr."
+    )
+elif stuck:
     st.error(
         f"Mạng không học được (train loss cuối {final_loss:.2f} ≈ ln 10 = 2.30, tức đoán bừa) — "
         f"lr = {lr} quá lớn: mỗi bước nhảy vượt quá đáy, trọng số văng ra xa, nhiều ReLU 'chết' "
