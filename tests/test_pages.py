@@ -125,3 +125,17 @@ def test_generalization_presets_set_every_control():
         assert not at.exception
         for key, value in values.items():
             assert at.session_state[f"g_{key}"] == value, (name, key)
+
+
+def test_no_raw_html_in_text_elements_that_do_not_render_it():
+    """st.caption / st.metric / st.markdown (không unsafe_allow_html) in nguyên thẻ HTML."""
+    import ast
+
+    for path in PAGES:
+        source = path.read_text()
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.Call) and getattr(node.func, "attr", "") in ("caption", "metric", "markdown"):
+                segment = ast.get_source_segment(source, node) or ""
+                if "unsafe_allow_html=True" not in segment:
+                    for tag in ("<i>", "<b>", "<br>", "<code>"):
+                        assert tag not in segment, f"{path.name}:{node.lineno} dùng {tag} trong {node.func.attr}"

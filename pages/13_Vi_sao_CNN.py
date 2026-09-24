@@ -96,7 +96,8 @@ with st.container(border=True):
     m = max(abs(dy), abs(dx)) + 1  # bỏ dải viền: ở đó padding / phần bị cắt làm 2 bên khác nhau
     interior_err = float(np.abs(diff[:, m:-m, m:-m]).max())
 
-    st.pyplot(
+    c_img, c_maps = st.columns([2, 3])  # ảnh nhỏ bên trái, 3 feature map bên phải
+    c_img.pyplot(
         fig_feature_maps(
             np.stack([image[0, :, :, 0], moved[0, :, :, 0]], axis=-1),
             titles=["ảnh x", f"ảnh dịch ({dy}, {dx})"],
@@ -104,7 +105,7 @@ with st.container(border=True):
             cmap="gray_r",
         )
     )
-    st.pyplot(
+    c_maps.pyplot(
         fig_feature_maps(
             np.stack([f[0, :, :, channel], f_moved[0, :, :, channel], diff[0, :, :, channel]], axis=-1),
             titles=["conv(x)", "conv(dịch x)", "dịch(conv x) − conv(dịch x)"],

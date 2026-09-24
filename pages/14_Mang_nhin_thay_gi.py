@@ -87,7 +87,7 @@ with st.container(border=True):
         f"nhìn tăng rất nhanh. Nhưng vùng {r}×{r} không đều: hình vuông giữa chiếm {area:.0%} diện "
         f"tích mà mang {share:.0%} ảnh hưởng, mép vùng chỉ còn {edge:.0%} so với tâm — {spread}. "
         "Pixel ở giữa có nhiều đường đi tới neuron hơn pixel ở mép, nên receptive field "
-        "<i>hiệu dụng</i> nhỏ hơn lý thuyết và càng sâu càng dồn về giữa (Luo et al., 2016)."
+        "*hiệu dụng* nhỏ hơn lý thuyết và càng sâu càng dồn về giữa (Luo et al., 2016)."
     )
 
 # ---------------------------------------------------------------------------
