@@ -147,3 +147,43 @@ def test_conv_and_batchnorm_match_torch():
         torch.tensor(ours).permute(0, 3, 1, 2), None, None, training=True, eps=1e-5
     ).permute(0, 2, 3, 1)
     np.testing.assert_allclose(bn_ours, bn_theirs.numpy(), atol=1e-8)
+
+
+def test_flatten_gradients():
+    from cnn_core.layers import Flatten
+
+    rng = np.random.default_rng(9)
+    check_layer_grads(Flatten(), rng.normal(size=(2, 3, 3, 2)), rng)
+
+
+@pytest.mark.parametrize("shape", [(4, 3, 3, 3), (6, 3)])
+def test_batchnorm_eval_mode_gradient(shape):
+    """Eval dùng running stats (hằng số) -> gradient khác hẳn công thức train."""
+    rng = np.random.default_rng(10)
+    bn = BatchNorm2D(3)
+    bn.params["gamma"] = rng.normal(size=3)
+    bn.running_mean = rng.normal(size=3)
+    bn.running_var = rng.uniform(0.5, 2.0, size=3)
+    x = rng.normal(size=shape)
+    g = rng.normal(size=shape)
+    bn.forward(x, train=False)
+    dx = bn.backward(g)
+
+    def loss():
+        return float(np.sum(bn.forward(x, train=False) * g))
+
+    np.testing.assert_allclose(dx, numeric_grad(loss, x), atol=1e-6)
+
+
+def test_relu_forward_does_not_read_mask_back_from_attribute():
+    """2 phiên dùng chung 1 model đã cache: phiên khác có thể ghi đè self.mask
+    giữa lúc gán và lúc dùng. forward phải tính từ biến cục bộ."""
+
+    class Racing(ReLU):
+        def __getattribute__(self, name):
+            if name == "mask":
+                return np.zeros((1,), dtype=bool)  # "mask của phiên khác"
+            return super().__getattribute__(name)
+
+    x = np.array([[-1.0, 2.0, 3.0]])
+    np.testing.assert_array_equal(Racing().forward(x), [[0.0, 2.0, 3.0]])

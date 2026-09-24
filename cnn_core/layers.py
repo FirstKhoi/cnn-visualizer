@@ -86,8 +86,11 @@ class Conv2D(Layer):
 
 class ReLU(Layer):
     def forward(self, x, train=True):
-        self.mask = x > 0
-        return x * self.mask
+        # tính vào biến cục bộ: không đọc lại self.mask, để 2 phiên dùng chung 1
+        # model đã cache (st.cache_resource) không giẫm lên mask của nhau
+        mask = x > 0
+        self.mask = mask
+        return x * mask
 
     def backward(self, dout):
         return dout * self.mask
@@ -121,6 +124,7 @@ class BatchNorm2D(Layer):
 
     train=True: dùng mean/var của CHÍNH batch này + cập nhật running stats.
     train=False: dùng running stats (1 ảnh lẻ lúc predict không có "batch").
+    backward() dùng đúng công thức của mode ở lần forward gần nhất.
     """
 
     def __init__(self, ch: int, momentum: float = 0.9, eps: float = 1e-5):
@@ -141,14 +145,18 @@ class BatchNorm2D(Layer):
             mean, var = self.running_mean, self.running_var
         std = np.sqrt(var + self.eps)
         x_hat = (x - mean) / std
-        self.cache = (x_hat, std, axes)
+        self.cache = (x_hat, std, axes, train)
         return self.params["gamma"] * x_hat + self.params["beta"]
 
     def backward(self, dout):
-        x_hat, std, axes = self.cache
-        M = dout.size // dout.shape[-1]  # số phần tử mỗi kênh
+        x_hat, std, axes, train = self.cache
         self.grads = {"gamma": (dout * x_hat).sum(axis=axes), "beta": dout.sum(axis=axes)}
         dx_hat = dout * self.params["gamma"]
+        if not train:
+            # eval: mean/std là hằng số (running stats) -> BN chỉ là phép affine
+            return dx_hat / std
+        M = dout.size // dout.shape[-1]  # số phần tử mỗi kênh
+        # train: mean/var phụ thuộc cả batch nên gradient có thêm 2 số hạng
         return (M * dx_hat - dx_hat.sum(axis=axes) - x_hat * (dx_hat * x_hat).sum(axis=axes)) / (M * std)
 
 
