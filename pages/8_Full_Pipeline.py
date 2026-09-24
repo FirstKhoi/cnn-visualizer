@@ -4,7 +4,7 @@ import streamlit as st
 from PIL import Image
 
 from cnn_core.block import ConvBlock, make_random_kernels
-from viz.matrix_view import fig_feature_maps
+from viz.matrix_view import fig_feature_maps, fig_lines
 from viz.theme import PAGE_COLORS, callout, hero, inject_base_css
 from viz.widgets import run_or_hint, step_controls
 
@@ -79,20 +79,28 @@ for i in range(num_blocks):
     in_channels = kernels_per_block
 
 # Forward toàn bộ trước (để có sẵn dữ liệu), nhưng CHỈ hiển thị tới đúng
-# block mà người dùng đã "đi" tới qua step_controls bên dưới.
+# bước mà người dùng đã "đi" tới qua step_controls bên dưới. Mỗi block tách
+# thành 3 bước con conv / relu / pool.
 activations = [("input", image)]
 x = image
 for i, block in enumerate(blocks):
-    x = run_or_hint(
-        block.forward,
+    steps = run_or_hint(
+        block.forward_steps,
         x,
         todo_hint="Implement `ConvBlock.forward` trong `cnn_core/block.py` (Phase 5).",
     )
-    activations.append((f"block {i + 1}", x))
+    activations += [(f"block {i + 1} · {name}", out) for name, out in steps]
+    x = steps[-1][1]
 
-st.markdown("#### Forward pass — đi qua từng block một")
+STEP_NOTES = {
+    "conv": "Mỗi kernel nhân-cộng trên MỌI kênh input rồi cộng lại → 1 map. Có cả số âm.",
+    "relu": "Cắt hết số âm về 0 — nhiều vùng tối hẳn.",
+    "pool": "Giữ số lớn nhất mỗi ô 2×2 → kích thước còn một nửa.",
+}
+
+st.markdown("#### Forward pass — đi qua từng bước của từng block")
 with st.container(border=True):
-    step = step_controls("pipeline_walk", len(activations), color=COLOR, step_label="Lớp")
+    step = step_controls("pipeline_walk", len(activations), color=COLOR, step_label="Bước")
     name, activation = activations[step]
 
     if step == 0:
@@ -102,8 +110,32 @@ with st.container(border=True):
         ax.axis("off")
         st.pyplot(fig)
     else:
-        st.markdown(f"**Block {step}** — shape `{activation.shape}` (sau Conv → ReLU → Pool)")
-        st.pyplot(fig_feature_maps(activation, titles=[f"k{c}" for c in range(activation.shape[-1])], max_cols=4))
+        kind = name.split(" · ")[1]
+        st.markdown(f"**{name}** — shape `{activation.shape}` · {STEP_NOTES[kind]}")
+        st.pyplot(
+            fig_feature_maps(
+                activation, titles=[f"k{c}" for c in range(activation.shape[-1])], max_cols=4, shared_scale=True
+            )
+        )
+        st.caption(
+            f"Thang màu chung cho cả bước này: min {activation.min():.3g} · max {activation.max():.3g} · "
+            f"std {activation.std():.3g}. So với bước trước để thấy độ lớn thay đổi thế nào."
+        )
+
+st.divider()
+st.markdown("#### Độ lớn activation qua độ sâu (toàn bộ pipeline)")
+names = [n for n, _ in activations]
+c1, c2 = st.columns(2)
+c1.pyplot(fig_lines({"std": [float(a.std()) for _, a in activations]}, xlabels=names, ylabel="std"))
+c2.pyplot(fig_lines({"% số 0": [100 * float(np.mean(a == 0)) for _, a in activations]}, xlabels=names, ylabel="% = 0"))
+callout(
+    "Kernel random N(0, 0.1) làm std co lại ~½ sau mỗi block, và ReLU tắt ngày càng "
+    "nhiều neuron. Xếp thêm vài chục lớp, tín hiệu gần như biến mất (hoặc nổ tung nếu "
+    "kernel lớn) — gradient lúc train cũng vậy. Đây chính là bài toán mà <b>Batch "
+    "Normalization</b> (trang 9) sinh ra để giải.",
+    color=COLOR,
+    label="Nhìn kỹ",
+)
 
 st.divider()
 st.markdown("#### Tóm tắt shape qua pipeline (tính tới bước hiện tại)")

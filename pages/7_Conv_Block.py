@@ -3,7 +3,7 @@ import numpy as np
 import streamlit as st
 
 from cnn_core.block import ConvBlock, make_random_kernels
-from viz.matrix_view import fig_feature_maps
+from viz.matrix_view import fig_activation_hist, fig_feature_maps
 from viz.theme import PAGE_COLORS, callout, hero, inject_base_css
 from viz.widgets import run_or_hint
 
@@ -64,16 +64,31 @@ block = run_or_hint(
     2,
     todo_hint="Implement `ConvBlock.__init__` trong `cnn_core/block.py` (Phase 5).",
 )
-output = run_or_hint(
-    block.forward,
+steps = run_or_hint(
+    block.forward_steps,
     image,
     todo_hint="Implement `ConvBlock.forward` trong `cnn_core/block.py` (Phase 5) — cần conv2d_multichannel, relu, max_pool2d đã xong trước đó.",
 )
+output = steps[-1][1]
 
 with st.container(border=True):
     st.markdown(f"#### Feature maps sau Conv → ReLU → Pool: `{output.shape}`")
-    st.pyplot(fig_feature_maps(output, titles=[f"kernel {i}" for i in range(num_kernels)]))
+    shared = st.toggle(
+        "Chung thang màu cho mọi kernel",
+        value=True,
+        help="Tắt: mỗi map tự co giãn màu — dễ nhìn hình dạng nhưng che mất độ lớn thật.",
+    )
+    st.pyplot(fig_feature_maps(output, titles=[f"kernel {i}" for i in range(num_kernels)], shared_scale=shared))
     st.caption(
         f"Input {image.shape} -> {num_kernels} kernel {kernel_size}x{kernel_size} -> "
         f"output {output.shape}. Mỗi ô là 1 feature map — kernel khác nhau bắt pattern khác nhau."
+    )
+
+with st.container(border=True):
+    st.markdown("#### Phân phối giá trị qua từng bước")
+    st.pyplot(fig_activation_hist([("input", image)] + steps, color=COLOR))
+    st.caption(
+        "Sau Conv: số âm lẫn dương quanh 0. Sau ReLU: toàn bộ phần âm dồn về đúng 0 "
+        "(cột cao ở 0, xem % zero). Sau Max Pool: chỉ giữ số lớn nhất mỗi vùng nên "
+        "phân phối dịch sang phải, ít số 0 hơn."
     )
